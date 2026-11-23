@@ -11,7 +11,7 @@ import { WildPage } from './pages/WildPage';
 import { AppProvider, useApp, type MoreSection } from './store/AppContext';
 
 function AppShell() {
-  const { activeGen, activeTab, moreSection, setMoreSection, i18n } = useApp();
+  const { activeGen, activeTab, setActiveTab, moreSection, setMoreSection, i18n } = useApp();
 
   if (activeGen === 'home') {
     return <HomeMenuPage />;
@@ -21,6 +21,22 @@ function AppShell() {
     <div className="app-shell min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col">
       <TopHeader />
 
+      <nav className="hidden lg:flex w-full max-w-[1440px] mx-auto px-6 gap-2 border-b border-zinc-800">
+        {(['seed', 'stationary', 'wild', 'egg', 'event', 'id', 'profiles'] as const).map((tab) => {
+          const secondary = tab === 'event' || tab === 'id' || tab === 'profiles';
+          const active = secondary ? activeTab === 'more' && moreSection === tab : activeTab === tab;
+          const label = tab === 'event' ? 'Event' : tab === 'id' ? 'ID RNG' : tab === 'profiles' ? i18n.t('profiles.title') : i18n.t(`nav.${tab}`);
+          return (
+            <button key={tab} aria-current={active ? 'page' : undefined}
+              className="min-h-11 px-3 border-b-2 border-transparent text-sm text-zinc-300 aria-[current=page]:border-amber-400 aria-[current=page]:text-amber-200"
+              onClick={() => {
+                if (secondary) setMoreSection(tab);
+                setActiveTab(secondary ? 'more' : tab);
+              }}
+            >{label}</button>
+          );
+        })}
+      </nav>
       <main className="flex-1 max-w-xl w-full mx-auto px-3 pt-3">
         {activeTab === 'seed' && <SeedPage />}
         {activeTab === 'stationary' && <StationaryPage />}
@@ -28,8 +44,8 @@ function AppShell() {
         {activeTab === 'egg' && <EggPage />}
 
         {activeTab === 'more' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+          <div className="more-page space-y-3">
+            <div className="lg:hidden grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
               {(
                 [
                   { id: 'event', label: 'Event' },

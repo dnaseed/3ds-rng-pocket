@@ -31,7 +31,7 @@ Clock readings and frame advances are entered manually. Battle Tree, Festival Pl
 
 ## Use online or install on a phone
 
-You can use [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) directly in any mobile or desktop browser with no local setup.
+You can use [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) directly in any mobile or desktop browser with no local setup. At widths of 1024 px and above, the top navigation opens all seven tools directly. Search settings and results appear side by side, so you can adjust an encounter while keeping the previous frames in view.
 
 To install it as an offline PWA on your phone, open the same link in your mobile browser: on Android, choose **Install app** or **Add to Home screen** from the browser menu; on iOS Safari, tap **Share → Add to Home Screen**.
 

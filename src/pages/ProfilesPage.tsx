@@ -100,23 +100,25 @@ export function ProfilesPage() {
   };
 
   return (
-    <div className="space-y-4 pb-4">
-      {/* Profile List Header */}
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-zinc-100">{i18n.t('profiles.title')}</h2>
-        <button
-          type="button"
-          onClick={startNew}
-          className="h-10 px-3 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{i18n.t('profiles.newProfile')}</span>
-        </button>
+    <div className="tool-workspace profiles-workspace pb-4">
+      <div className="profile-header">
+        {/* Profile List Header */}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-bold text-zinc-100">{i18n.t('profiles.title')}</h2>
+          <button
+            type="button"
+            onClick={startNew}
+            className="h-10 px-3 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{i18n.t('profiles.newProfile')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Edit Modal / Card */}
       {editing && (
-        <div className="rounded-2xl bg-zinc-900 border border-amber-500/40 p-4 space-y-3">
+        <div className="profile-editor rounded-2xl bg-zinc-900 border border-amber-500/40 p-4 space-y-3">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-zinc-400">
               {i18n.t('profiles.name')}
@@ -274,109 +276,111 @@ export function ProfilesPage() {
         </div>
       )}
 
-      {/* Existing Profiles */}
-      <div className="space-y-2">
-        {profileStore.profiles.map((p) => {
-          const isActive = p.id === activeProfile.id;
-          return (
-            <div
-              key={p.id}
-              className={`rounded-2xl border p-3 flex items-center justify-between gap-2 transition ${
-                isActive
-                  ? 'bg-zinc-900 border-amber-500/60'
-                  : 'bg-zinc-900/60 border-zinc-800'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => selectProfile(p.id)}
-                className="flex-1 text-left min-w-0"
+      <div className="profile-list space-y-4">
+        {/* Existing Profiles */}
+        <div className="space-y-2">
+          {profileStore.profiles.map((p) => {
+            const isActive = p.id === activeProfile.id;
+            return (
+              <div
+                key={p.id}
+                className={`rounded-2xl border p-3 flex items-center justify-between gap-2 transition ${
+                  isActive
+                    ? 'bg-zinc-900 border-amber-500/60'
+                    : 'bg-zinc-900/60 border-zinc-800'
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[11px] font-bold ${
-                      p.gameVersion === 'US'
-                        ? 'bg-orange-500/20 text-orange-300'
-                        : p.gameVersion === 'UM'
-                          ? 'bg-indigo-500/20 text-indigo-300'
-                          : p.gameVersion === 'S'
-                            ? 'bg-amber-500/20 text-amber-300'
-                            : 'bg-sky-500/20 text-sky-300'
-                    }`}
-                  >
-                    {p.gameVersion}
-                  </span>
-                  <span className="font-semibold text-sm text-zinc-100 truncate">{p.name}</span>
-                  {p.shinyCharm && <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                </div>
-                <div className="text-xs font-mono tabular-nums text-zinc-400 mt-1">
-                  TSV {String(p.tsv).padStart(4, '0')} · TRV {p.trv}
-                  {(p.tid > 0 || p.sid > 0) &&
-                    ` · G7TID ${String(computeTsvTrv(p.tid, p.sid).g7tid).padStart(6, '0')}`}
-                </div>
-              </button>
-
-              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => startEdit(p)}
-                  className="h-9 px-3 rounded-xl bg-zinc-800 text-xs font-medium text-zinc-200"
+                  onClick={() => selectProfile(p.id)}
+                  className="flex-1 text-left min-w-0"
                 >
-                  {i18n.t('app.edit')}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-bold ${
+                        p.gameVersion === 'US'
+                          ? 'bg-orange-500/20 text-orange-300'
+                          : p.gameVersion === 'UM'
+                            ? 'bg-indigo-500/20 text-indigo-300'
+                            : p.gameVersion === 'S'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : 'bg-sky-500/20 text-sky-300'
+                      }`}
+                    >
+                      {p.gameVersion}
+                    </span>
+                    <span className="font-semibold text-sm text-zinc-100 truncate">{p.name}</span>
+                    {p.shinyCharm && <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  </div>
+                  <div className="text-xs font-mono tabular-nums text-zinc-400 mt-1">
+                    TSV {String(p.tsv).padStart(4, '0')} · TRV {p.trv}
+                    {(p.tid > 0 || p.sid > 0) &&
+                      ` · G7TID ${String(computeTsvTrv(p.tid, p.sid).g7tid).padStart(6, '0')}`}
+                  </div>
                 </button>
-                {profileStore.profiles.length > 1 && (
+
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (editing?.id === p.id) setEditing(null);
-                      deleteProfile(p.id);
-                    }}
-                    className="h-9 w-9 flex items-center justify-center rounded-xl bg-zinc-800 text-rose-400"
-                    aria-label={i18n.t('app.delete')}
+                    onClick={() => startEdit(p)}
+                    className="h-9 px-3 rounded-xl bg-zinc-800 text-xs font-medium text-zinc-200"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {i18n.t('app.edit')}
                   </button>
-                )}
+                  {profileStore.profiles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editing?.id === p.id) setEditing(null);
+                        deleteProfile(p.id);
+                      }}
+                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-zinc-800 text-rose-400"
+                      aria-label={i18n.t('app.delete')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* Export / Import JSON */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={handleExport}
-          className="h-11 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-2 active:scale-95 transition"
-        >
-          <Download className="w-4 h-4" />
-          <span>{i18n.t('profiles.exportJson')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-11 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-2 active:scale-95 transition"
-        >
-          <Upload className="w-4 h-4" />
-          <span>{i18n.t('profiles.importJson')}</span>
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            void handleImportFile(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
+        {/* Export / Import JSON */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="h-11 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-2 active:scale-95 transition"
+          >
+            <Download className="w-4 h-4" />
+            <span>{i18n.t('profiles.exportJson')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-11 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-2 active:scale-95 transition"
+          >
+            <Upload className="w-4 h-4" />
+            <span>{i18n.t('profiles.importJson')}</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              void handleImportFile(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+        </div>
+        {importError && <p className="text-xs text-rose-400">{importError}</p>}
+        {importSuccess && <p className="text-xs text-emerald-400">{i18n.t('profiles.imported')}</p>}
       </div>
-      {importError && <p className="text-xs text-rose-400">{importError}</p>}
-      {importSuccess && <p className="text-xs text-emerald-400">{i18n.t('profiles.imported')}</p>}
 
       {/* App Settings */}
-      <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-3.5 space-y-3">
+      <div className="profile-settings rounded-2xl bg-zinc-900/80 border border-zinc-800 p-3.5 space-y-3">
         <h3 className="text-sm font-bold text-zinc-200">{i18n.t('profiles.settings')}</h3>
 
         <div className="flex items-center justify-between gap-2">

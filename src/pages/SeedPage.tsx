@@ -57,7 +57,19 @@ export function SeedPage() {
   const [tcNpc, setTcNpc] = useState(4);
   const [tcFidget, setTcFidget] = useState(false);
   const [tcRaining, setTcRaining] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 64rem)').matches : false,
+  );
   const timeCalcRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 64rem)');
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const timeCalcStr = useMemo(() => {
     if (Math.abs(targetFrame - startFrame) > 500_000) {
@@ -176,8 +188,8 @@ export function SeedPage() {
     setActiveTab('stationary');
   };
 
-  return (
-    <div className="space-y-3 pb-4">
+  const seedInputsNode = (
+    <div className="seed-inputs space-y-3">
       {/* Mode Segmented Control */}
       <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
         {(
@@ -321,10 +333,21 @@ export function SeedPage() {
         onUndo={() => setSequence((prev) => prev.slice(0, -1))}
         onClear={() => setSequence([])}
       />
+    </div>
+  );
 
+  const seedClocksNode = (
+    <div className="seed-clocks">
+      {/* Clock Hand Touch Grid */}
+      <ClockPickerGrid clockStyle={clockStyle} onPick={handlePickClock} />
+    </div>
+  );
+
+  const seedMatchesNode = (
+    <div className="seed-matches">
       {/* Results Card */}
       {mode !== 'qr' ? (
-        <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2">
+        <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2 lg:flex lg:flex-col lg:min-h-0">
           {sequence.length < requiredCount ? (
             <p className="text-xs text-zinc-400 text-center py-1">
               {i18n.t('seed.needMoreClocks', { n: requiredCount })}
@@ -342,7 +365,7 @@ export function SeedPage() {
           ) : apiResults.length === 0 ? (
             <p className="text-xs text-zinc-400 text-center py-1">{i18n.t('app.noResults')}</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
               {apiResults.map((res, idx) => (
                 <div
                   key={`${res.seed}-${idx}`}
@@ -372,7 +395,7 @@ export function SeedPage() {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2">
+        <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2 lg:flex lg:flex-col lg:min-h-0">
           {sequence.length < 2 ? (
             <p className="text-xs text-zinc-400 text-center py-1">
               {i18n.t('seed.qrNeedMore')}
@@ -385,7 +408,7 @@ export function SeedPage() {
           ) : qrSearched && qrResults.length === 0 ? (
             <p className="text-xs text-zinc-400 text-center py-1">{i18n.t('app.noResults')}</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
               {qrResults.slice(0, 20).map((m, idx) => (
                 <div
                   key={`${m.lastClockFrame}-${idx}`}
@@ -410,15 +433,14 @@ export function SeedPage() {
           )}
         </div>
       )}
+    </div>
+  );
 
-      {/* Clock Hand Touch Grid */}
-      <ClockPickerGrid clockStyle={clockStyle} onPick={handlePickClock} />
-
-      {/* Time Calculator Card (Gen7MainRNGTool) */}
-      <div
-        ref={timeCalcRef}
-        className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5 scroll-mt-16"
-      >
+  const timeCalcNode = (
+    <div
+      ref={timeCalcRef}
+      className="seed-timecalc rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5 scroll-mt-16"
+    >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
             <Calculator className="w-3.5 h-3.5 text-amber-400" />
@@ -489,7 +511,30 @@ export function SeedPage() {
         <div className="rounded-xl bg-zinc-950 border border-sky-500/30 px-3 py-2 font-mono text-xs font-semibold text-sky-200 text-center tabular-nums">
           {i18n.t('seed.timeCalcResult', { time: timeCalcStr })}
         </div>
-      </div>
+    </div>
+  );
+
+  return (
+    <div className="tool-workspace seed-workspace pb-4">
+      {isDesktop ? (
+        <>
+          <div className="tool-pane seed-left-pane">
+            {seedInputsNode}
+            {seedClocksNode}
+          </div>
+          <div className="tool-pane seed-right-pane">
+            {seedMatchesNode}
+            {timeCalcNode}
+          </div>
+        </>
+      ) : (
+        <>
+          {seedInputsNode}
+          {seedMatchesNode}
+          {seedClocksNode}
+          {timeCalcNode}
+        </>
+      )}
     </div>
   );
 }

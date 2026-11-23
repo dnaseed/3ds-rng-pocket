@@ -1,3 +1,4 @@
+import { SearchWorkspace } from '../components/layout/SearchWorkspace';
 import { ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useRef, useState } from 'react';
@@ -33,6 +34,7 @@ export function IdPage() {
   const [rows, setRows] = useState<IdResult7[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [paramsCollapsed, setParamsCollapsed] = useState(false);
+  const [summary, setSummary] = useState('');
   const [searchNonce, setSearchNonce] = useState(0);
 
   const { isRunning, progress, error, abort, runIdSearch } = useSearchWorker();
@@ -43,6 +45,10 @@ export function IdPage() {
   useEffect(() => {
     if (searchNonce <= 0) return;
     const raf = requestAnimationFrame(() => {
+      if (window.matchMedia('(min-width: 64rem)').matches) {
+        parentRef.current?.scrollTo({ top: 0 });
+        return;
+      }
       resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     return () => cancelAnimationFrame(raf);
@@ -72,6 +78,7 @@ export function IdPage() {
           randList: randText.split(/\r?\n/),
         },
       });
+      setSummary(`ID RNG · #${startFrame} – #${endFrame} · ${initialSeedNum.toString(16).toUpperCase().padStart(8, '0')}`);
       setRows(res.rows);
       setTruncated(res.truncated);
       setSearchNonce((n) => n + 1);
@@ -81,8 +88,124 @@ export function IdPage() {
   };
 
   return (
-    <div className="space-y-3 pb-6">
-      {!paramsCollapsed && (
+    <>
+      <SearchWorkspace
+        collapsed={paramsCollapsed}
+        results={
+          <>
+            {error && (
+              <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
+                {error}
+              </div>
+            )}
+
+            {/* Virtualized ID List */}
+            <div ref={resultsRef} className="scroll-mt-16">
+            {summary && <p className="hidden lg:block text-xs text-zinc-300">{summary}</p>}
+              {rows.length === 0 ? (
+              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/80 p-6 text-center text-xs text-zinc-400">
+                <span className="lg:hidden">{i18n.t('app.noResults')}</span><span className="hidden lg:inline">{searchNonce ? `0 ${i18n.t('app.results')}` : i18n.t('app.startSearch')}</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1 text-xs text-zinc-400 font-mono tabular-nums">
+                  <span>
+                    {rows.length.toLocaleString()} {i18n.t('app.results')}
+                    {truncated ? ' (max)' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setParamsCollapsed((v) => !v)}
+                    className="lg:hidden h-9 px-2.5 rounded-xl bg-zinc-900 border border-zinc-800 font-sans text-[11px] font-semibold text-zinc-200 flex items-center gap-1 active:scale-95 transition"
+                  >
+                    {paramsCollapsed ? (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{i18n.t('search.editParams')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>{i18n.t('search.collapseParams')}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div
+                  ref={parentRef}
+                  className={`${
+                    paramsCollapsed ? 'h-[70dvh]' : 'h-[52dvh]'
+                  } min-h-64 overflow-y-auto rounded-2xl transition-[height] duration-150`}
+                >
+                  <div
+                    style={{
+                      height: `${virtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {virtualizer.getVirtualItems().map((item) => {
+                      const id = rows[item.index]!;
+                      return (
+                        <div
+                          key={item.key}
+                          data-index={item.index}
+                          ref={virtualizer.measureElement}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${item.start}px)`,
+                          }}
+                          className="pb-2"
+                        >
+                          <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3 flex items-center justify-between gap-3">
+                            <div className="space-y-1 min-w-0 font-mono tabular-nums">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-zinc-100">
+                                  #{id.frame.toLocaleString()}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 text-xs font-bold">
+                                  G7 {String(id.g7tid).padStart(6, '0')}
+                                </span>
+                                <span className="text-xs text-emerald-300 font-semibold">
+                                  TSV {String(id.tsv).padStart(4, '0')}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-zinc-400">
+                                TID {String(id.tid).padStart(5, '0')} · SID{' '}
+                                {String(id.sid).padStart(5, '0')} · TRV {id.trv} ·{' '}
+                                <span className="text-zinc-400">{toHex64(id.randLo, id.randHi)}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-center shrink-0">
+                              <ClockDialSvg index={id.clock} size={36} />
+                              <span className="font-mono text-[10px] text-zinc-400 tabular-nums">
+                                {String(id.clock).padStart(2, '0')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+            </div>
+          </>
+        }
+        actions={
+          <SearchActionBar
+            activeFilters={0}
+            isRunning={isRunning}
+            progress={progress}
+            onSearch={() => void executeSearch()}
+            onAbort={abort}
+          />
+        }
+      >
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-bold text-zinc-100">{i18n.t('id.title')}</h2>
@@ -203,116 +326,7 @@ export function IdPage() {
           </div>
         )}
       </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
-          {error}
-        </div>
-      )}
-
-      {/* Virtualized ID List */}
-      <div ref={resultsRef} className="scroll-mt-16">
-      {rows.length === 0 ? (
-        <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/80 p-6 text-center text-xs text-zinc-400">
-          {i18n.t('app.noResults')}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between px-1 text-xs text-zinc-400 font-mono tabular-nums">
-            <span>
-              {rows.length.toLocaleString()} {i18n.t('app.results')}
-              {truncated ? ' (max)' : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => setParamsCollapsed((v) => !v)}
-              className="h-9 px-2.5 rounded-xl bg-zinc-900 border border-zinc-800 font-sans text-[11px] font-semibold text-zinc-200 flex items-center gap-1 active:scale-95 transition"
-            >
-              {paramsCollapsed ? (
-                <>
-                  <ChevronDown className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{i18n.t('search.editParams')}</span>
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>{i18n.t('search.collapseParams')}</span>
-                </>
-              )}
-            </button>
-          </div>
-          <div
-            ref={parentRef}
-            className={`${
-              paramsCollapsed ? 'h-[70dvh]' : 'h-[52dvh]'
-            } min-h-64 overflow-y-auto rounded-2xl transition-[height] duration-150`}
-          >
-            <div
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map((item) => {
-                const id = rows[item.index]!;
-                return (
-                  <div
-                    key={item.key}
-                    data-index={item.index}
-                    ref={virtualizer.measureElement}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${item.start}px)`,
-                    }}
-                    className="pb-2"
-                  >
-                    <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3 flex items-center justify-between gap-3">
-                      <div className="space-y-1 min-w-0 font-mono tabular-nums">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-zinc-100">
-                            #{id.frame.toLocaleString()}
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 text-xs font-bold">
-                            G7 {String(id.g7tid).padStart(6, '0')}
-                          </span>
-                          <span className="text-xs text-emerald-300 font-semibold">
-                            TSV {String(id.tsv).padStart(4, '0')}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-zinc-400">
-                          TID {String(id.tid).padStart(5, '0')} · SID{' '}
-                          {String(id.sid).padStart(5, '0')} · TRV {id.trv} ·{' '}
-                          <span className="text-zinc-400">{toHex64(id.randLo, id.randHi)}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-center shrink-0">
-                        <ClockDialSvg index={id.clock} size={36} />
-                        <span className="font-mono text-[10px] text-zinc-400 tabular-nums">
-                          {String(id.clock).padStart(2, '0')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-
-      <SearchActionBar
-        activeFilters={0}
-        isRunning={isRunning}
-        progress={progress}
-        onSearch={() => void executeSearch()}
-        onAbort={abort}
-      />
-    </div>
+      </SearchWorkspace>
+    </>
   );
 }

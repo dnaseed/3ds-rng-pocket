@@ -1,3 +1,4 @@
+import { SearchWorkspace } from '../components/layout/SearchWorkspace';
 import { RotateCcw, Settings2, Upload, X } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent } from 'react';
 import textEn from '../data/generated/text_en.json';
@@ -76,6 +77,7 @@ export function EventPage() {
   const [truncated, setTruncated] = useState(false);
   const [selectedRow, setSelectedRow] = useState<FrameRow | null>(null);
   const [paramsCollapsed, setParamsCollapsed] = useState(false);
+  const [resultInfo, setResultInfo] = useState({ summary: '', filterCount: 0, ignored: false, species: 0, forme: 0 });
   const [searchNonce, setSearchNonce] = useState(0);
 
   const { isRunning, progress, error, abort, runMainSearch } = useSearchWorker();
@@ -177,6 +179,12 @@ export function EventPage() {
           gender,
         },
       });
+      const modeName = { normal: 'search.modeNormal', timeline: 'search.modeTimeline', aroundTarget: 'search.modeAround', timelineLeap: 'search.modeLeap' } as const;
+      setResultInfo({
+        summary: `${(species ? i18n.getSpeciesName(species) : 'Event')} · ${i18n.t(modeName[m])}`,
+        filterCount: countActiveFilters(filter), ignored: filter.skip,
+        species: species, forme: forme,
+      });
       setRows(res.rows);
       setTruncated(res.truncated);
       setLeapInfo(res.leapInfo);
@@ -250,9 +258,55 @@ export function EventPage() {
   };
 
   return (
-    <div className="space-y-3 pb-6">
-      {!paramsCollapsed && (
-        <>
+    <>
+      <SearchWorkspace
+        collapsed={paramsCollapsed}
+        results={
+          <>
+            {leapInfo && (
+              <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-xs text-emerald-200 font-medium">
+                {i18n
+                  .t('search.leapHitSummary')
+                  .replace('{f0}', leapInfo.frame0.toLocaleString())
+                  .replace('{target}', leapInfo.targetFrame.toLocaleString())
+                  .replace('{count}', String(leapInfo.hitCount))}
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
+                {error}
+              </div>
+            )}
+
+            <VirtualFrameList
+              rows={rows}
+              truncated={truncated}
+              allowShowStats={resultInfo.species > 0}
+              fallbackSpecies={resultInfo.species}
+              fallbackForme={resultInfo.forme}
+              onSelectRow={setSelectedRow}
+              activeFiltersCount={resultInfo.filterCount}
+              filtersIgnored={resultInfo.ignored}
+              paramsCollapsed={paramsCollapsed}
+              onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
+              scrollNonce={searchNonce}
+              splitView
+              contextSummary={resultInfo.summary}
+            />
+          </>
+        }
+        actions={
+          <SearchActionBar
+            activeFilters={countActiveFilters(filter)}
+            onOpenFilters={() => setFilterOpen(true)}
+            isRunning={isRunning}
+            progress={progress}
+            onSearch={() => void executeSearch()}
+            onAbort={abort}
+          />
+        }
+      >
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-bold text-zinc-100">{i18n.t('event.title')}</h2>
@@ -836,47 +890,7 @@ export function EventPage() {
           </label>
         </div>
       </div>
-        </>
-      )}
-
-      {mode === 'timelineLeap' && leapInfo && (
-        <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-xs text-emerald-200 font-medium">
-          {i18n
-            .t('search.leapHitSummary')
-            .replace('{f0}', leapInfo.frame0.toLocaleString())
-            .replace('{target}', leapInfo.targetFrame.toLocaleString())
-            .replace('{count}', String(leapInfo.hitCount))}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
-          {error}
-        </div>
-      )}
-
-      <VirtualFrameList
-        rows={rows}
-        truncated={truncated}
-        allowShowStats={species > 0}
-        fallbackSpecies={species}
-        fallbackForme={forme}
-        onSelectRow={setSelectedRow}
-        activeFiltersCount={countActiveFilters(filter)}
-        filtersIgnored={filter.skip}
-        paramsCollapsed={paramsCollapsed}
-        onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
-        scrollNonce={searchNonce}
-      />
-
-      <SearchActionBar
-        activeFilters={countActiveFilters(filter)}
-        onOpenFilters={() => setFilterOpen(true)}
-        isRunning={isRunning}
-        progress={progress}
-        onSearch={() => void executeSearch()}
-        onAbort={abort}
-      />
+      </SearchWorkspace>
 
       <FilterBottomSheet
         open={filterOpen}
@@ -891,10 +905,10 @@ export function EventPage() {
       <FrameDetailModal
         row={selectedRow}
         onClose={() => setSelectedRow(null)}
-        fallbackSpecies={species}
-        fallbackForme={forme}
+        fallbackSpecies={resultInfo.species}
+        fallbackForme={resultInfo.forme}
         aroundTab="event"
       />
-    </div>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { SearchWorkspace } from '../components/layout/SearchWorkspace';
 import { RotateCcw, Settings2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import stationarySmData from '../data/generated/stationary_sm.json';
@@ -83,6 +84,7 @@ export function StationaryPage() {
   const [truncated, setTruncated] = useState(false);
   const [selectedRow, setSelectedRow] = useState<FrameRow | null>(null);
   const [paramsCollapsed, setParamsCollapsed] = useState(false);
+  const [resultInfo, setResultInfo] = useState({ summary: '', filterCount: 0, ignored: false, species: 0, forme: 0 });
   const [searchNonce, setSearchNonce] = useState(0);
 
   const { isRunning, progress, error, abort, runMainSearch } = useSearchWorker();
@@ -204,6 +206,12 @@ export function StationaryPage() {
           template: isConceptual ? null : activeTemplate,
         },
       });
+      const modeName = { normal: 'search.modeNormal', timeline: 'search.modeTimeline', aroundTarget: 'search.modeAround', timelineLeap: 'search.modeLeap' } as const;
+      setResultInfo({
+        summary: `${formatTemplateName(activeTemplate)} · ${i18n.t(modeName[m])}`,
+        filterCount: countActiveFilters(filter), ignored: filter.skip,
+        species: activeTemplate.species, forme: activeTemplate.forme,
+      });
       setRows(res.rows);
       setTruncated(res.truncated);
       setLeapInfo(res.leapInfo);
@@ -257,9 +265,56 @@ export function StationaryPage() {
   };
 
   return (
-    <div className="space-y-3 pb-6">
-      {!paramsCollapsed && (
-        <>
+    <>
+      <SearchWorkspace
+        collapsed={paramsCollapsed}
+        results={
+          <>
+            {leapInfo && (
+              <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-xs text-emerald-200 font-medium">
+                {i18n
+                  .t('search.leapHitSummary')
+                  .replace('{f0}', leapInfo.frame0.toLocaleString())
+                  .replace('{target}', leapInfo.targetFrame.toLocaleString())
+                  .replace('{count}', String(leapInfo.hitCount))}
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
+                {error}
+              </div>
+            )}
+
+            {/* Results List */}
+            <VirtualFrameList
+              rows={rows}
+              truncated={truncated}
+              allowShowStats={resultInfo.species > 0}
+              fallbackSpecies={resultInfo.species}
+              fallbackForme={resultInfo.forme}
+              onSelectRow={setSelectedRow}
+              activeFiltersCount={resultInfo.filterCount}
+              filtersIgnored={resultInfo.ignored}
+              paramsCollapsed={paramsCollapsed}
+              onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
+              scrollNonce={searchNonce}
+              splitView
+              contextSummary={resultInfo.summary}
+            />
+          </>
+        }
+        actions={
+          <SearchActionBar
+            activeFilters={countActiveFilters(filter)}
+            onOpenFilters={() => setFilterOpen(true)}
+            isRunning={isRunning}
+            progress={progress}
+            onSearch={() => void executeSearch()}
+            onAbort={abort}
+          />
+        }
+      >
       {/* Target Picker Card */}
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5">
         <div className="grid grid-cols-2 gap-2">
@@ -776,49 +831,7 @@ export function StationaryPage() {
           </div>
         )}
       </div>
-        </>
-      )}
-
-      {mode === 'timelineLeap' && leapInfo && (
-        <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-xs text-emerald-200 font-medium">
-          {i18n
-            .t('search.leapHitSummary')
-            .replace('{f0}', leapInfo.frame0.toLocaleString())
-            .replace('{target}', leapInfo.targetFrame.toLocaleString())
-            .replace('{count}', String(leapInfo.hitCount))}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
-          {error}
-        </div>
-      )}
-
-      {/* Results List */}
-      <VirtualFrameList
-        rows={rows}
-        truncated={truncated}
-        allowShowStats={activeTemplate.species > 0}
-        fallbackSpecies={activeTemplate.species}
-        fallbackForme={activeTemplate.forme}
-        onSelectRow={setSelectedRow}
-        activeFiltersCount={countActiveFilters(filter)}
-        filtersIgnored={filter.skip}
-        paramsCollapsed={paramsCollapsed}
-        onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
-        scrollNonce={searchNonce}
-      />
-
-      {/* Sticky Bottom Search / Filters Bar */}
-      <SearchActionBar
-        activeFilters={countActiveFilters(filter)}
-        onOpenFilters={() => setFilterOpen(true)}
-        isRunning={isRunning}
-        progress={progress}
-        onSearch={() => void executeSearch()}
-        onAbort={abort}
-      />
+      </SearchWorkspace>
 
       {/* Filter Sheet */}
       <FilterBottomSheet
@@ -836,10 +849,10 @@ export function StationaryPage() {
       <FrameDetailModal
         row={selectedRow}
         onClose={() => setSelectedRow(null)}
-        fallbackSpecies={activeTemplate.species}
-        fallbackForme={activeTemplate.forme}
+        fallbackSpecies={resultInfo.species}
+        fallbackForme={resultInfo.forme}
         aroundTab="stationary"
       />
-    </div>
+    </>
   );
 }

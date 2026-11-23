@@ -21,6 +21,7 @@ interface VirtualFrameListProps {
   paramsCollapsed?: boolean;
   onToggleParamsCollapsed?: () => void;
   scrollNonce?: number;
+  splitView?: boolean;
   contextSummary?: string;
 }
 
@@ -39,6 +40,7 @@ export function VirtualFrameList({
   paramsCollapsed = false,
   onToggleParamsCollapsed,
   scrollNonce = 0,
+  splitView = false,
   contextSummary,
 }: VirtualFrameListProps) {
   const { i18n } = useApp();
@@ -50,10 +52,14 @@ export function VirtualFrameList({
   useEffect(() => {
     if (scrollNonce <= 0) return;
     const raf = requestAnimationFrame(() => {
+      if (splitView && window.matchMedia('(min-width: 64rem)').matches) {
+        parentRef.current?.scrollTo({ top: 0 });
+        return;
+      }
       containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     return () => cancelAnimationFrame(raf);
-  }, [scrollNonce]);
+  }, [scrollNonce, splitView]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -66,7 +72,10 @@ export function VirtualFrameList({
     return (
       <div ref={containerRef} className="scroll-mt-16">
         <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/80 p-5 flex items-center justify-between gap-2 text-xs text-zinc-400">
-          <span>{i18n.t('app.noResults')}</span>
+          <span className={splitView ? 'lg:hidden' : ''}>{i18n.t('app.noResults')}</span>
+          {splitView && <span className="hidden lg:block">
+            {scrollNonce ? `${contextSummary} · 0 ${i18n.t('app.results')}` : i18n.t('app.startSearch')}
+          </span>}
           <button
             type="button"
             onClick={() => setLegendOpen(true)}
@@ -105,7 +114,7 @@ export function VirtualFrameList({
             <button
               type="button"
               onClick={onToggleParamsCollapsed}
-              className="h-9 px-2.5 rounded-xl bg-zinc-900 border border-zinc-800 font-sans text-[11px] font-semibold text-zinc-200 flex items-center gap-1 active:scale-95 transition"
+              className={`h-9 px-2.5 rounded-xl bg-zinc-900 border border-zinc-800 font-sans text-[11px] font-semibold text-zinc-200 flex items-center gap-1 active:scale-95 transition ${splitView ? 'lg:hidden' : ''}`}
             >
               {paramsCollapsed ? (
                 <>
@@ -146,8 +155,8 @@ export function VirtualFrameList({
         </div>
       </div>
 
-      {paramsCollapsed && contextSummary && (
-        <div className="px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800/80 text-[11px] text-zinc-300 font-medium truncate">
+      {(paramsCollapsed || splitView) && contextSummary && (
+        <div className={`px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800/80 text-[11px] text-zinc-300 font-medium truncate ${paramsCollapsed ? '' : 'hidden lg:block'}`}>
           {contextSummary}
         </div>
       )}

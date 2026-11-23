@@ -1,3 +1,4 @@
+import { SearchWorkspace } from '../components/layout/SearchWorkspace';
 import { CheckCircle2, Delete, RotateCcw, Settings2, Sparkles, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createDefaultRngFilter } from '../engine/core/filters';
@@ -87,6 +88,7 @@ export function EggPage() {
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(() => new Set());
   const [selectedRow, setSelectedRow] = useState<FrameRow | null>(null);
   const [paramsCollapsed, setParamsCollapsed] = useState(false);
+  const [resultInfo, setResultInfo] = useState({ summary: '', filterCount: 0, ignored: false });
   const [searchNonce, setSearchNonce] = useState(0);
 
   const { isRunning, progress, error, abort, runEggSearch, runMainSearch } = useSearchWorker();
@@ -164,7 +166,6 @@ export function EggPage() {
 
   const executeEggSearch = async () => {
     if (!validEggSeed) return;
-    setCheckedSteps(new Set());
     try {
       const res = await runEggSearch({
         kind: 'egg',
@@ -179,8 +180,10 @@ export function EggPage() {
         shinyRemind,
         filter,
       });
+      setResultInfo({ summary: i18n.t(eggMode === 'frame' ? 'egg.modeFrame' : eggMode === 'list' ? 'egg.modeList' : 'egg.modeShortest'), filterCount: countActiveFilters(filter), ignored: filter.skip });
       setRows(res.rows);
       setTruncated(res.truncated);
+      setCheckedSteps(new Set());
       setInstruction(res.instruction);
       setSearchNonce((n) => n + 1);
     } catch {
@@ -190,7 +193,6 @@ export function EggPage() {
 
   const executeMainEggSearch = async () => {
     if (!validEggSeed) return;
-    setInstruction(undefined);
     const reqFilter: RngFilterOptions = {
       ...filter,
       safeOnly: mainMode === 'normal' && mainNpc > 0 ? filter.safeOnly : false,
@@ -220,6 +222,8 @@ export function EggPage() {
         considerOtherTsv,
         otherTsvs: activeProfile.otherTsvs,
       });
+      setInstruction(undefined);
+      setResultInfo({ summary: `Main RNG Egg · ${i18n.t(mainMode === 'normal' ? 'search.modeNormal' : mainMode === 'timeline' ? 'search.modeTimeline' : 'search.modeAround')}`, filterCount: countActiveFilters(filter), ignored: filter.skip });
       setRows(res.rows);
       setTruncated(res.truncated);
       setSearchNonce((n) => n + 1);
@@ -292,7 +296,7 @@ export function EggPage() {
   );
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="egg-page space-y-3 pb-6">
       {/* Sub-Tabs */}
       <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
         {(
@@ -315,7 +319,7 @@ export function EggPage() {
       </div>
 
       {subTab === 'magikarp' ? (
-        <div className="min-h-[calc(100dvh-13.5rem)] flex flex-col justify-between gap-3">
+        <div className="karp-workspace min-h-[calc(100dvh-13.5rem)] flex flex-col justify-between gap-3">
           <div className="space-y-3">
             <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -412,8 +416,72 @@ export function EggPage() {
         </div>
       ) : (
         <>
-          {!paramsCollapsed && (
-            <>
+          <SearchWorkspace
+        collapsed={paramsCollapsed}
+        results={
+          <>
+            {instruction && (
+                  <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/40 p-3 flex items-center justify-between text-xs text-emerald-200">
+                    <span>
+                      {i18n.t('egg.accept')}: <strong>{instruction.acceptedEggs}</strong> ·{' '}
+                      {i18n.t('egg.reject')}: <strong>{instruction.rejectedSteps}</strong>
+                    </span>
+                    {instruction.isShortestPath && (
+                      <span className="font-mono tabular-nums">
+                        {checkedSteps.size}/{rows.length}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
+                    {error}
+                  </div>
+                )}
+
+                <VirtualFrameList
+                  rows={rows}
+                  truncated={truncated}
+                  checkedIndices={
+                    instruction?.isShortestPath ? checkedSteps : undefined
+                  }
+                  onToggleCheck={
+                    instruction?.isShortestPath
+                      ? (idx) => {
+                          setCheckedSteps((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(idx)) next.delete(idx);
+                            else next.add(idx);
+                            return next;
+                          });
+                        }
+                      : undefined
+                  }
+                  onSelectRow={setSelectedRow}
+                  activeFiltersCount={resultInfo.filterCount}
+                  filtersIgnored={resultInfo.ignored}
+                  paramsCollapsed={paramsCollapsed}
+                  onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
+                  scrollNonce={searchNonce}
+                  splitView
+                  contextSummary={resultInfo.summary}
+                />
+          </>
+        }
+        actions={
+          <SearchActionBar
+                activeFilters={countActiveFilters(filter)}
+                onOpenFilters={() => setFilterOpen(true)}
+                isRunning={isRunning}
+                progress={progress}
+                onSearch={() =>
+                  void (subTab === 'calc' ? executeEggSearch() : executeMainEggSearch())
+                }
+                onAbort={abort}
+              />
+        }
+      >
           {/* Egg Seed & Parent Card */}
           <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5">
             <div className="space-y-1">
@@ -891,65 +959,7 @@ export function EggPage() {
               </div>
             </div>
           )}
-            </>
-          )}
-
-          {instruction && (
-            <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/40 p-3 flex items-center justify-between text-xs text-emerald-200">
-              <span>
-                {i18n.t('egg.accept')}: <strong>{instruction.acceptedEggs}</strong> ·{' '}
-                {i18n.t('egg.reject')}: <strong>{instruction.rejectedSteps}</strong>
-              </span>
-              {instruction.isShortestPath && (
-                <span className="font-mono tabular-nums">
-                  {checkedSteps.size}/{rows.length}
-                </span>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
-              {error}
-            </div>
-          )}
-
-          <VirtualFrameList
-            rows={rows}
-            truncated={truncated}
-            checkedIndices={
-              subTab === 'calc' && eggMode === 'shortestPath' ? checkedSteps : undefined
-            }
-            onToggleCheck={
-              subTab === 'calc' && eggMode === 'shortestPath'
-                ? (idx) => {
-                    setCheckedSteps((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(idx)) next.delete(idx);
-                      else next.add(idx);
-                      return next;
-                    });
-                  }
-                : undefined
-            }
-            onSelectRow={setSelectedRow}
-            activeFiltersCount={countActiveFilters(filter)}
-            filtersIgnored={filter.skip}
-            paramsCollapsed={paramsCollapsed}
-            onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
-            scrollNonce={searchNonce}
-          />
-
-          <SearchActionBar
-            activeFilters={countActiveFilters(filter)}
-            onOpenFilters={() => setFilterOpen(true)}
-            isRunning={isRunning}
-            progress={progress}
-            onSearch={() =>
-              void (subTab === 'calc' ? executeEggSearch() : executeMainEggSearch())
-            }
-            onAbort={abort}
-          />
+      </SearchWorkspace>
         </>
       )}
 

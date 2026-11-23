@@ -18,6 +18,7 @@
     "search": "Cerca",
     "stop": "Stop",
     "results": "risultati",
+    "startSearch": "Premi Cerca per visualizzare i frame.",
     "noResults": "Nessun frame corrispondente trovato.",
     "searching": "Ricerca in corso..."
   },
@@ -29,7 +30,7 @@
     "more": "Altro"
   },
   "home": {
-    "tagline": "Trova il frame bersaglio sul telefono mentre giochi sul Nintendo 3DS.",
+    "tagline": "Trova il frame bersaglio mentre giochi sul tuo Nintendo 3DS.",
     "chooseGen": "Seleziona Generazione",
     "gen7Title": "Generazione 7",
     "gen7Games": "Sun · Moon · Ultra Sun · Ultra Moon",
@@ -69,6 +70,7 @@
     "jumpTimeCalc": "Vai a Time Calc"
   },
   "search": {
+    "nature": "Natura",
     "rngInfo": "RNG Info",
     "resetRng": "Reset RNG",
     "resetFilters": "Reset Filters",

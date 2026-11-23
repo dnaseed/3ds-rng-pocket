@@ -1,3 +1,4 @@
+import { SearchWorkspace } from '../components/layout/SearchWorkspace';
 import { RotateCcw, Settings2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import wildSmData from '../data/generated/wild_sm.json';
@@ -179,6 +180,7 @@ export function WildPage() {
   const [truncated, setTruncated] = useState(false);
   const [selectedRow, setSelectedRow] = useState<FrameRow | null>(null);
   const [paramsCollapsed, setParamsCollapsed] = useState(false);
+  const [resultInfo, setResultInfo] = useState({ summary: '', filterCount: 0, ignored: false });
   const [searchNonce, setSearchNonce] = useState(0);
 
   const { isRunning, progress, error, abort, runMainSearch } = useSearchWorker();
@@ -557,6 +559,12 @@ export function WildPage() {
           hookedItemSlot,
         },
       });
+      const modeLabel = m === 'normal' ? 'search.modeNormal' : m === 'timeline' ? 'search.modeTimeline' : 'search.modeAround';
+      setResultInfo({
+        summary: `${wildContextSummary} · ${i18n.t(modeLabel)}`,
+        filterCount: countActiveFilters(filter),
+        ignored: filter.skip,
+      });
       setRows(res.rows);
       setTruncated(res.truncated);
       setSearchNonce((n) => n + 1);
@@ -604,9 +612,36 @@ export function WildPage() {
   }, [i18n, activeLocEntry, isSos, callerSf, activeTemplate, targetSpeciesIdx, distinctSpecies, WILD_CATS, catIdx]);
 
   return (
-    <div className="space-y-3 pb-6">
-      {!paramsCollapsed && (
-        <>
+    <>
+      <SearchWorkspace
+        collapsed={paramsCollapsed}
+        results={
+          <VirtualFrameList
+            rows={rows}
+            truncated={truncated}
+            showSpecies
+            allowShowStats
+            onSelectRow={setSelectedRow}
+            activeFiltersCount={resultInfo.filterCount}
+            filtersIgnored={resultInfo.ignored}
+            paramsCollapsed={paramsCollapsed}
+            onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
+            scrollNonce={searchNonce}
+            contextSummary={resultInfo.summary}
+            splitView
+          />
+        }
+        actions={
+          <SearchActionBar
+            activeFilters={countActiveFilters(filter)}
+            onOpenFilters={() => setFilterOpen(true)}
+            isRunning={isRunning}
+            progress={progress}
+            onSearch={() => void executeSearch()}
+            onAbort={abort}
+          />
+        }
+      >
       {/* Category & Location Card */}
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5">
         <div className="grid grid-cols-2 gap-2">
@@ -1169,8 +1204,7 @@ export function WildPage() {
           </label>
         </div>
       </div>
-        </>
-      )}
+
 
       {error && (
         <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3 text-xs text-rose-200">
@@ -1178,28 +1212,7 @@ export function WildPage() {
         </div>
       )}
 
-      <VirtualFrameList
-        rows={rows}
-        truncated={truncated}
-        showSpecies
-        allowShowStats
-        onSelectRow={setSelectedRow}
-        activeFiltersCount={countActiveFilters(filter)}
-        filtersIgnored={filter.skip}
-        paramsCollapsed={paramsCollapsed}
-        onToggleParamsCollapsed={() => setParamsCollapsed((v) => !v)}
-        scrollNonce={searchNonce}
-        contextSummary={wildContextSummary}
-      />
-
-      <SearchActionBar
-        activeFilters={countActiveFilters(filter)}
-        onOpenFilters={() => setFilterOpen(true)}
-        isRunning={isRunning}
-        progress={progress}
-        onSearch={() => void executeSearch()}
-        onAbort={abort}
-      />
+      </SearchWorkspace>
 
       <FilterBottomSheet
         open={filterOpen}
@@ -1217,6 +1230,6 @@ export function WildPage() {
         onClose={() => setSelectedRow(null)}
         aroundTab="wild"
       />
-    </div>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../common/useDialogFocus';
 import { RotateCcw, Sparkles, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { createDefaultRngFilter } from '../../engine/core/filters';
@@ -65,6 +66,7 @@ export function FilterBottomSheet({
 }: FilterBottomSheetProps) {
   const { i18n, lang } = useApp();
 
+  const dialogRef = useDialogFocus(open);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -118,14 +120,16 @@ export function FilterBottomSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end justify-center"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end justify-center lg:items-center lg:p-6"
       onClick={onClose}
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={i18n.t('filters.title')}
     >
       <div
-        className="w-full max-w-xl max-h-[88dvh] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl flex flex-col shadow-2xl"
+        className="w-full max-w-xl max-h-[88dvh] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl lg:rounded-3xl lg:border lg:max-h-full flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

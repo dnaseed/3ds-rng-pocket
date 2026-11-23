@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../common/useDialogFocus';
 import { Check, Clock, Copy, Crosshair, Play, Sparkles, Target, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getFormeEntry } from '../../data/personalTable';
@@ -27,6 +28,7 @@ export function FrameDetailModal({
   const { i18n, setStartFrame, setTargetFrame, triggerAroundTarget, triggerTimelineFrom } = useApp();
   const [copied, setCopied] = useState(false);
 
+  const dialogRef = useDialogFocus(Boolean(row));
   useEffect(() => {
     setCopied(false);
   }, [row]);
@@ -92,14 +94,16 @@ export function FrameDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end justify-center"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end justify-center lg:items-center lg:p-6"
       onClick={onClose}
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={`Frame #${row.frame}`}
     >
       <div
-        className="w-full max-w-xl bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-4 space-y-3 safe-pb max-h-[85dvh] overflow-y-auto"
+        className="w-full max-w-xl bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-4 space-y-3 safe-pb max-h-[85dvh] overflow-y-auto overscroll-contain lg:max-h-full lg:max-w-2xl lg:rounded-3xl lg:border lg:p-5 lg:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
@@ -138,7 +142,7 @@ export function FrameDetailModal({
         {/* Summary: Nature, Ability, Gender, Hidden Power */}
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 px-3 py-2.5 grid grid-cols-4 gap-2 text-center text-xs">
           <div>
-            <span className="block text-[11px] text-zinc-400">{i18n.t('filters.natures')}</span>
+            <span className="block text-[11px] text-zinc-400">{i18n.t('search.nature')}</span>
             <span className="font-semibold text-zinc-100 inline-flex items-center justify-center gap-1 flex-wrap">
               <span>{natureLabel}</span>
               {r.synchronize && (
@@ -192,7 +196,7 @@ export function FrameDetailModal({
         </div>
 
         {/* Hex & Technical Metadata */}
-        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3 grid grid-cols-2 gap-y-2 gap-x-3 font-mono text-xs tabular-nums">
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3 grid grid-cols-2 lg:grid-cols-4 gap-y-2 gap-x-3 font-mono text-xs tabular-nums">
           <div>
             <span className="text-zinc-400 block text-[11px]">PID</span>
             <span className="text-zinc-100">{hideEggPid ? '—' : pidHex}</span>

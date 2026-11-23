@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../common/useDialogFocus';
 import { ChevronDown, Clock, Layers, SlidersHorizontal, Sparkles, Target, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { GameVersionId } from '../../engine/core/types';
@@ -41,6 +42,7 @@ export function TopHeader() {
   const [showTargetPopover, setShowTargetPopover] = useState(false);
 
   const anyPopoverOpen = showPicker || showSeedPopover || showTargetPopover;
+  const dialogRef = useDialogFocus(anyPopoverOpen);
   useEffect(() => {
     if (!anyPopoverOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -57,7 +59,7 @@ export function TopHeader() {
   return (
     <>
       <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 safe-pt">
-        <div className="max-w-xl mx-auto px-2.5 h-13 flex items-center justify-between gap-2">
+        <div className="max-w-xl lg:max-w-[1440px] lg:px-6 mx-auto px-2.5 h-13 flex items-center justify-between gap-2">
           {/* Active Profile Pill + Online Dot */}
           <button
             type="button"
@@ -136,12 +138,14 @@ export function TopHeader() {
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
           onClick={() => setShowPicker(false)}
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={i18n.t('profiles.title')}
         >
           <div
-            className="max-w-xl mx-auto mt-14 px-3"
+            className="header-popover max-w-xl mx-auto mt-14 px-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-2 shadow-2xl space-y-1">
@@ -214,12 +218,14 @@ export function TopHeader() {
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
           onClick={() => setShowSeedPopover(false)}
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={i18n.t('seed.manualHex')}
         >
           <div
-            className="max-w-xl mx-auto mt-14 px-3"
+            className="header-popover header-popover-end max-w-xl mx-auto mt-14 px-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5 shadow-2xl space-y-3">
@@ -262,12 +268,14 @@ export function TopHeader() {
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
           onClick={() => setShowTargetPopover(false)}
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={i18n.t('search.targetFrame')}
         >
           <div
-            className="max-w-xl mx-auto mt-14 px-3"
+            className="header-popover header-popover-end max-w-xl mx-auto mt-14 px-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5 shadow-2xl space-y-3">
