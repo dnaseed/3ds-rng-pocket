@@ -5,8 +5,6 @@
   <p><a href="https://dnaseed.github.io/3ds-rng-pocket/"><strong>Open 3DS RNG Pocket</strong></a></p>
 </div>
 
-**The web app is live and free to use directly in your browser on GitHub Pages at [dnaseed.github.io/3ds-rng-pocket](https://dnaseed.github.io/3ds-rng-pocket/) — no local setup or installation required.**
-
 **Frame searches work offline after the first load.** Save/ID clock seed lookup requires an internet connection. If you already know your initial seed, enter it in hex to work offline.
 
 ## Quick Gen 7 RNG workflow
