@@ -2,11 +2,12 @@
   <img src="public/icons/icon-192.png" alt="3DS RNG Pocket" width="96" height="96" />
   <h1>3DS RNG Pocket</h1>
   <p>An independent mobile-first port of 3DSRNGTool for Pokémon Sun, Moon, Ultra Sun &amp; Ultra Moon. Find your target frame on your phone while playing on your Nintendo 3DS.</p>
+  <p><a href="https://dnaseed.github.io/3ds-rng-pocket/"><strong>Open 3DS RNG Pocket</strong></a></p>
 </div>
 
 **Frame searches work offline after the first load.** Save/ID clock seed lookup requires an internet connection. If you already know your initial seed, enter it in hex to work offline.
 
-To try the app locally, follow [Local development](#local-development).
+Open [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) in your browser, or follow [Local development](#local-development) to run it locally.
 
 ## Quick Gen 7 RNG workflow
 
@@ -32,7 +33,7 @@ Clock readings and frame advances are entered manually. Battle Tree, Festival Pl
 
 ## Install on a phone
 
-Open an HTTPS-hosted production build in your phone's browser. On Android, use the browser menu and choose **Install app** or **Add to Home screen**. On iOS, open the app in Safari and choose **Share → Add to Home Screen**.
+Open [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) in your phone's browser. On Android, use the browser menu and choose **Install app** or **Add to Home screen**. On iOS, open the app in Safari and choose **Share → Add to Home Screen**.
 
 ## Local development
 
