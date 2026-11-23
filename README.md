@@ -12,7 +12,7 @@
 1. For English, tap **IT** on the home screen. **Open Gen 7** starts on **Seed** with an Ultra Sun profile. For another game, go to **More → Trainer Profiles → New Profile**, choose the game, save, and return to **Seed**. Enter your initial seed or use the Save Screen clock lookup.
 2. In **Stationary**, **Wild**, or **More → Event**, choose your encounter and select **Normal**. Set **Min Frame** and **Max Frame**, choose your filters, and tap **Search**. With NPCs present, **Safe Frames Only** helps find a stable starting frame.
 3. Tap a result. **Timeline from #…** opens a populated Timeline starting at that frame. Read the waiting time there. Use **Set Min Frame** or **Set Target** when you only want to save the frame number.
-4. If you miss the encounter, open the intended frame and tap **Around Target (±100F)**. Compare nearby results with the Pokémon you obtained. The **?** beside the result count explains the frame badges.
+4. If you miss the encounter, open the intended frame and tap **Around Target (±100F)**. Use **Filters → Calculate IVs from stats** to turn a caught Pokémon’s summary stats (0 EVs) into IV ranges and compare nearby results. The **?** beside the result count explains the frame badges.
 
 ## Features
 

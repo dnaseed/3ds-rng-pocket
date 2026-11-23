@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getBlinkFlagList } from '../../src/engine/core/blinkFlags';
 import { ModelStatus } from '../../src/engine/core/modelStatus';
+import { getIvRanges } from '../../src/engine/core/ivRanges';
+import { getFormeEntry } from '../../src/data/personalTable';
 import {
   calcFrame,
   getHiddenPowerValue,
@@ -16,6 +18,44 @@ import { SFMT } from '../../src/engine/rng/sfmt';
 import { TinyMT } from '../../src/engine/rng/tinymt';
 
 describe('Gen 7 Core Utilities & Math', () => {
+  it('inverts the zero-EV 3DSRNGTool stat formula for a neutral level 50 Pikachu', () => {
+    const base = getFormeEntry(25).stats;
+    expect(getIvRanges(base, 50, 0, [110, 70, 50, 55, 69, 110])).toEqual({
+      ivLow: [30, 20, 10, 0, 28, 30],
+      ivUp: [31, 21, 11, 1, 29, 31],
+    });
+    expect(getIvRanges(base, 50, 0, [111, 70, 50, 55, 69, 110])).toBeNull();
+  });
+
+  it('handles nature rounding, exact spreads and fixed HP independently', () => {
+    const base = getFormeEntry(25).stats;
+    // Timid, +Spe/-Atk. Different Attack IVs can round to the same stat even at level 100.
+    expect(getIvRanges(base, 100, 10, [211, 108, 95, 105, 125, 237])).toEqual({
+      ivLow: [31, 5, 10, 0, 20, 31], ivUp: [31, 6, 10, 0, 20, 31],
+    });
+    const shedinja = getFormeEntry(292).stats;
+    const stats = [1, 185, 95, 65, 65, 85];
+    expect(getIvRanges(shedinja, 100, 0, stats)).toEqual({
+      ivLow: [0, 0, 0, 0, 0, 0], ivUp: [31, 0, 0, 0, 0, 0],
+    });
+    expect(getIvRanges(shedinja, 100, 0, [2, ...stats.slice(1)])).toBeNull();
+    expect(getIvRanges(base, 0, 0, stats)).toBeNull();
+    expect(getIvRanges(base, 1, -1, stats)).toBeNull();
+  });
+
+  it('bounds a highest IV from the characteristic, allowing ties and rejecting contradictions', () => {
+    const base = getFormeEntry(25).stats;
+    const observed = [110, 70, 50, 55, 69, 110];
+    expect(getIvRanges(base, 50, 0, observed, { stat: 5, remainder: 0 })).toEqual({
+      ivLow: [30, 20, 10, 0, 28, 30],
+      ivUp: [30, 21, 11, 1, 29, 30],
+    });
+    expect(getIvRanges(base, 50, 0, observed, { stat: 1, remainder: 1 })).toBeNull();
+    const zeros = [180, 115, 85, 105, 105, 185];
+    expect(getIvRanges(base, 100, 0, zeros, { stat: 1, remainder: 0 })).toBeNull();
+    expect(getIvRanges(base, 100, 0, zeros, { stat: 0, remainder: 0 })?.ivUp).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
   it('recovers exact 127-bit TinyMT state via calcMagikarpSeed (GF(2) inverse)', () => {
     const seeds = [0x00000001, 0x12345678, 0xaabbccdd, 0xffffffff];
     for (const seed of seeds) {

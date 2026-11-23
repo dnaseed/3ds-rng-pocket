@@ -840,6 +840,7 @@ export function StationaryPage() {
         filter={filter}
         onChange={setFilter}
         mode="stationary"
+        encounter={activeTemplate}
         syncNature={syncNature}
         showSafeBlink={mode === 'normal'}
         npcCount={npcCount}

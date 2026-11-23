@@ -5,11 +5,15 @@ import wildSmData from '../../src/data/generated/wild_sm.json';
 import wildData from '../../src/data/generated/wild_usum.json';
 import type { StationaryCategory } from '../../src/data/types';
 import { createDefaultRngFilter } from '../../src/engine/core/filters';
+import { getFormeEntry } from '../../src/data/personalTable';
+import { getIvRanges } from '../../src/engine/core/ivRanges';
+import { getStats } from '../../src/engine/core/pokemonMath';
 import type { WildResult7 } from '../../src/engine/core/types';
 import {
   runEgg7Search,
   runId7Search,
   runMainGen7Search,
+  type MainGen7SearchRequest,
 } from '../../src/engine/gen7/searches';
 import { SLOT_DISTRIBUTIONS } from '../../src/engine/gen7/wild7';
 import { TinyMT } from '../../src/engine/rng/tinymt';
@@ -103,7 +107,7 @@ describe('Gen 7 Search Flows Integration', () => {
     expect(timeline.rows.length).toBe(20 * 30 + 1);
     expect(timeline.rows.some((r) => r.blink === 1)).toBe(true); // fidget jump triggered
 
-    const around = runMainGen7Search({
+    const aroundRequest: MainGen7SearchRequest = {
       kind: 'stationary',
       seed: 0x12345678,
       isUltra: true,
@@ -140,8 +144,21 @@ describe('Gen 7 Search Flows Integration', () => {
         randomGender: false,
         template: mewtwo,
       },
-    });
+    };
+    const around = runMainGen7Search(aroundRequest);
     expect(around.rows.some((r) => r.blink === 4)).toBe(true); // <?> hidden frames from EC match
+
+    const captured = around.rows[0]!;
+    const base = getFormeEntry(mewtwo.species, mewtwo.forme).stats;
+    const { ivs, nature, level } = captured.result;
+    const ranges = getIvRanges(base, level, nature, getStats(ivs, nature, level, base));
+    expect(ranges).not.toBeNull();
+    const matching = runMainGen7Search({
+      ...aroundRequest, filter: { ...filter, ...ranges, skip: false },
+    });
+    expect(matching.rows.some(row =>
+      row.frame === captured.frame && row.result.ec === captured.result.ec)).toBe(true);
+    expect(matching.rows.length).toBeLessThan(around.rows.length);
   });
 
   it('executes Wild FishyTimeline with Save/Load and TimeWindow', () => {

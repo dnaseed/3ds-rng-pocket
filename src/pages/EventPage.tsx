@@ -898,6 +898,7 @@ export function EventPage() {
         filter={filter}
         onChange={setFilter}
         mode="event"
+        encounter={{ species, forme, level }}
         showSafeBlink={mode === 'normal'}
         npcCount={npcCount}
       />

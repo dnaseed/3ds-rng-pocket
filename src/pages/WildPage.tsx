@@ -340,6 +340,10 @@ export function WildPage() {
     return out;
   }, [sosSlots, weatherSlots]);
 
+  const selectedEncounter = isSos
+    ? distinctSosAllies[sosAllyIdx - 1]?.sf
+    : distinctSpecies[targetSpeciesIdx - 1];
+
   useEffect(() => {
     setSosAllyIdx(0);
   }, [callerSf, sosWeather, isNight, isSos]);
@@ -1220,6 +1224,7 @@ export function WildPage() {
         filter={filter}
         onChange={setFilter}
         mode="wild"
+        encounter={selectedEncounter ? { species: selectedEncounter & 0x7ff, forme: selectedEncounter >>> 11 } : undefined}
         syncNature={syncNature}
         showSafeBlink={mode === 'normal'}
         npcCount={npcCount}
