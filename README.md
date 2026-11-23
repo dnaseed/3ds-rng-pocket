@@ -5,9 +5,9 @@
   <p><a href="https://dnaseed.github.io/3ds-rng-pocket/"><strong>Open 3DS RNG Pocket</strong></a></p>
 </div>
 
-**Frame searches work offline after the first load.** Save/ID clock seed lookup requires an internet connection. If you already know your initial seed, enter it in hex to work offline.
+**The web app is live and free to use directly in your browser on GitHub Pages at [dnaseed.github.io/3ds-rng-pocket](https://dnaseed.github.io/3ds-rng-pocket/) — no local setup or installation required.**
 
-Open [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) in your browser, or follow [Local development](#local-development) to run it locally.
+**Frame searches work offline after the first load.** Save/ID clock seed lookup requires an internet connection. If you already know your initial seed, enter it in hex to work offline.
 
 ## Quick Gen 7 RNG workflow
 
@@ -31,13 +31,15 @@ Gen 7 frame outputs were compared row by row with **3DSRNGTool v1.0.6** on sampl
 
 Clock readings and frame advances are entered manually. Battle Tree, Festival Plaza, and Roto Loto are outside the current release. Planned additions include Gen 6 (X/Y and Omega Ruby/Alpha Sapphire) and optional console integration.
 
-## Install on a phone
+## Use online or install on a phone
 
-Open [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) in your phone's browser. On Android, use the browser menu and choose **Install app** or **Add to Home screen**. On iOS, open the app in Safari and choose **Share → Add to Home Screen**.
+You can use [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) directly in any mobile or desktop browser with no local setup.
+
+To install it as an offline PWA on your phone, open the same link in your mobile browser: on Android, choose **Install app** or **Add to Home screen** from the browser menu; on iOS Safari, tap **Share → Add to Home Screen**.
 
 ## Local development
 
-Use a current Node.js 22.x release. From the repository root, install dependencies, start Vite, and open the local URL it prints.
+Only needed if you want to run, test, or modify the source code locally (requires a current Node.js 22.x release):
 
 ```bash
 npm ci
