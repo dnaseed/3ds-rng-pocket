@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Reference source (external, excluded from project git history)
+_reference/
+
+# Temporary / scratch / coverage
+.tmp/
+coverage/
+*.local
+.DS_Store
+Thumbs.db

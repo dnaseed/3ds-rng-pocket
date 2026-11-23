@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@layer components {
+  /* Keep the scrollable form above both bottom bars, including the device inset. */
+  .app-shell:has(.search-action-bar) {
+    --nav-height: calc(3.75rem + 1px + env(safe-area-inset-bottom, 0px));
+    height: 100dvh;
+    padding-bottom: calc(var(--nav-height) + 4rem);
+  }
+
+  .app-shell:has(.search-action-bar) > main {
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 0.75rem;
+  }
+
+  .search-action-bar {
+    bottom: var(--nav-height);
+  }
+
+  .app-shell > main {
+    padding-bottom: 6rem;
+  }
+
+  .choice-button {
+    @apply border border-transparent text-zinc-300;
+  }
+
+  .choice-button[aria-pressed='true'] {
+    @apply bg-amber-500/15 border-amber-500/50 text-amber-200;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    background-color: #09090b;
+    color: #f4f4f5;
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide native number input spinners for clean mobile UI */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
