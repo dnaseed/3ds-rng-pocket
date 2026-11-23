@@ -5,6 +5,7 @@ import {
   computeTsvTrv,
   exportProfilesJson,
   importProfilesJson,
+  solveTidSidFromG7Tid,
   type TrainerProfile,
 } from '../services/profileStorage';
 import { DEFAULT_SEED_API_BASE } from '../services/sfmtSeedApi';
@@ -28,6 +29,7 @@ export function ProfilesPage() {
   } = useApp();
 
   const [editing, setEditing] = useState<TrainerProfile | null>(null);
+  const [editingG7Tid, setEditingG7Tid] = useState(0);
   const [otherTsvText, setOtherTsvText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
@@ -35,6 +37,7 @@ export function ProfilesPage() {
 
   const startEdit = (p: TrainerProfile) => {
     setEditing({ ...p });
+    setEditingG7Tid(computeTsvTrv(p.tid, p.sid).g7tid);
     setOtherTsvText(p.otherTsvs.join(', '));
   };
 
@@ -52,6 +55,7 @@ export function ProfilesPage() {
       otherTsvs: [],
     };
     setEditing(fresh);
+    setEditingG7Tid(0);
     setOtherTsvText('');
   };
 
@@ -151,6 +155,57 @@ export function ProfilesPage() {
 
           <div className="grid grid-cols-2 gap-2">
             <NumberStepper
+              label={i18n.t('profiles.tsv')}
+              value={editing.tsv}
+              min={0}
+              max={4095}
+              onChange={(tsv) => {
+                const solved =
+                  editingG7Tid > 0 || editing.tid > 0 || editing.sid > 0
+                    ? solveTidSidFromG7Tid(editingG7Tid, tsv, editing.trv)
+                    : null;
+                setEditing({
+                  ...editing,
+                  tsv,
+                  ...(solved ? { tid: solved.tid, sid: solved.sid } : {}),
+                });
+              }}
+            />
+            <NumberStepper
+              label={i18n.t('profiles.trv')}
+              value={editing.trv}
+              min={0}
+              max={15}
+              onChange={(trv) => {
+                const solved =
+                  editingG7Tid > 0 || editing.tid > 0 || editing.sid > 0
+                    ? solveTidSidFromG7Tid(editingG7Tid, editing.tsv, trv)
+                    : null;
+                setEditing({
+                  ...editing,
+                  trv,
+                  ...(solved ? { tid: solved.tid, sid: solved.sid } : {}),
+                });
+              }}
+            />
+          </div>
+
+          <NumberStepper
+            label={i18n.t('profiles.g7tid')}
+            value={editingG7Tid}
+            min={0}
+            max={999999}
+            onChange={(g7tid) => {
+              setEditingG7Tid(g7tid);
+              const solved = solveTidSidFromG7Tid(g7tid, editing.tsv, editing.trv);
+              if (solved) {
+                setEditing({ ...editing, tid: solved.tid, sid: solved.sid });
+              }
+            }}
+          />
+
+          <div className="grid grid-cols-2 gap-2">
+            <NumberStepper
               label={i18n.t('profiles.tid')}
               value={editing.tid}
               min={0}
@@ -158,6 +213,7 @@ export function ProfilesPage() {
               onChange={(tid) => {
                 const calc = computeTsvTrv(tid, editing.sid);
                 setEditing({ ...editing, tid, tsv: calc.tsv, trv: calc.trv });
+                setEditingG7Tid(calc.g7tid);
               }}
             />
             <NumberStepper
@@ -168,32 +224,9 @@ export function ProfilesPage() {
               onChange={(sid) => {
                 const calc = computeTsvTrv(editing.tid, sid);
                 setEditing({ ...editing, sid, tsv: calc.tsv, trv: calc.trv });
+                setEditingG7Tid(calc.g7tid);
               }}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <NumberStepper
-              label={i18n.t('profiles.tsv')}
-              value={editing.tsv}
-              min={0}
-              max={4095}
-              onChange={(tsv) => setEditing({ ...editing, tsv })}
-            />
-            <NumberStepper
-              label={i18n.t('profiles.trv')}
-              value={editing.trv}
-              min={0}
-              max={15}
-              onChange={(trv) => setEditing({ ...editing, trv })}
-            />
-          </div>
-
-          <div className="text-xs font-mono text-zinc-400 tabular-nums">
-            {i18n.t('profiles.g7tid')}:{' '}
-            <span className="text-zinc-200 font-bold">
-              {String(computeTsvTrv(editing.tid, editing.sid).g7tid).padStart(6, '0')}
-            </span>
           </div>
 
           <label className="flex items-center justify-between min-h-11 px-3 rounded-xl bg-zinc-950 border border-zinc-800">
@@ -277,8 +310,9 @@ export function ProfilesPage() {
                   {p.shinyCharm && <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                 </div>
                 <div className="text-xs font-mono tabular-nums text-zinc-400 mt-1">
-                  TSV {String(p.tsv).padStart(4, '0')} · TRV {p.trv} · TID{' '}
-                  {String(p.tid).padStart(5, '0')}
+                  TSV {String(p.tsv).padStart(4, '0')} · TRV {p.trv}
+                  {(p.tid > 0 || p.sid > 0) &&
+                    ` · G7TID ${String(computeTsvTrv(p.tid, p.sid).g7tid).padStart(6, '0')}`}
                 </div>
               </button>
 

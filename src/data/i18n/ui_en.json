@@ -261,7 +261,7 @@
     "sid": "SID (16-bit)",
     "tsv": "TSV (0–4095)",
     "trv": "TRV (0–15)",
-    "g7tid": "G7TID",
+    "g7tid": "G7TID (6 digits)",
     "shinyCharm": "Shiny Charm",
     "otherTsvs": "Other TSVs (comma separated)",
     "exportJson": "Export JSON",

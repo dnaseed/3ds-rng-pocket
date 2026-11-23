@@ -15,6 +15,7 @@ import { parseWc7File } from '../../src/engine/gen7/wc7Parser';
 import { SLOT_DISTRIBUTIONS, Wild7 } from '../../src/engine/gen7/wild7';
 import { SFMT } from '../../src/engine/rng/sfmt';
 import { TinyMT } from '../../src/engine/rng/tinymt';
+import { computeTsvTrv, solveTidSidFromG7Tid } from '../../src/services/profileStorage';
 
 const STATIONARY_CATS = stationaryData as StationaryCategory[];
 
@@ -591,5 +592,42 @@ describe('Gen 7 Generators (Stationary7, Wild7, Egg7, Event7, ID7)', () => {
     });
     const rt = pool.generate7<Result7>(ev);
     expect(rt.ivs).toEqual([31, 0, 31, 31, 31, 31]);
+  });
+
+  it('derives 16-bit TID/SID from G7TID+TSV+TRV and respects profile TSV/TRV in Event7 Your ID mode', () => {
+    const solved = solveTidSidFromG7Tid(711306, 1712, 2);
+    expect(solved).toEqual({ tid: 17994, sid: 11592 });
+    expect(computeTsvTrv(solved!.tid, solved!.sid)).toEqual({
+      tsv: 1712,
+      trv: 2,
+      g7tid: 711306,
+    });
+
+    const ev = new Event7({
+      species: 802,
+      forme: 0,
+      level: 50,
+      ivs: [-1, -1, -1, -1, -1, -1],
+      ivsCount: 3,
+      yourId: true,
+      isEgg: false,
+      noDex: false,
+      pidType: 0,
+      abilityLocked: true,
+      natureLocked: false,
+      genderLocked: true,
+      otherInfo: false,
+      tid: 0,
+      sid: 0,
+      tsv: 1712,
+      trv: 2,
+      ec: 0,
+      pid: 0,
+      ability: 1,
+      nature: 0,
+      gender: 0,
+    });
+    expect(ev.tsv).toBe(1712);
+    expect(ev.trv).toBe(2);
   });
 });

@@ -20,6 +20,8 @@ export interface Event7Config {
   otherInfo: boolean; // Force Square Shiny PID when pidType === 2
   tid: number;
   sid: number;
+  tsv?: number;
+  trv?: number;
   ec: number;
   pid: number;
   ability: number; // when !abilityLocked: 0 = 1/2, 1 = 1/2/H; when locked: 1/2/3 (or 0-indexed + 1)
@@ -66,8 +68,8 @@ export class Event7 implements Generator7 {
     this.otherInfo = cfg.otherInfo;
     this.tid = cfg.tid;
     this.sid = cfg.sid;
-    this.tsv = ((cfg.tid ^ cfg.sid) >>> 4) & 0xfff;
-    this.trv = (cfg.tid ^ cfg.sid) & 0xf;
+    this.tsv = cfg.tsv !== undefined ? (cfg.tsv & 0xfff) : (((cfg.tid ^ cfg.sid) >>> 4) & 0xfff);
+    this.trv = cfg.trv !== undefined ? (cfg.trv & 0xf) : ((cfg.tid ^ cfg.sid) & 0xf);
     this.ec = cfg.ec >>> 0;
     this.pid = cfg.pid >>> 0;
     this.ability = cfg.ability;

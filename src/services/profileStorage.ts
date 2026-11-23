@@ -34,6 +34,24 @@ export function computeTsvTrv(tid: number, sid: number): { tsv: number; trv: num
   };
 }
 
+/** Derive 16-bit TID/SID from a Gen 7 6-digit G7TID, TSV (0..4095), and TRV (0..15). */
+export function solveTidSidFromG7Tid(
+  g7tid: number,
+  tsv: number,
+  trv: number,
+): { tid: number; sid: number } | null {
+  const targetG7 = ((Math.trunc(g7tid) % 1_000_000) + 1_000_000) % 1_000_000;
+  const xor = ((tsv & 0xfff) << 4) | (trv & 0xf);
+  for (let sid = 0; sid <= 0xffff; sid++) {
+    const tid = sid ^ xor;
+    const full = (((sid << 16) | tid) >>> 0) % 1_000_000;
+    if (full === targetG7) {
+      return { tid, sid };
+    }
+  }
+  return null;
+}
+
 export function createDefaultProfile(): TrainerProfile {
   return {
     id: 'default-us',
