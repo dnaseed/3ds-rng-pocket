@@ -13,8 +13,8 @@ export function SearchWorkspace({ children, results, actions, collapsed }: Searc
       <div className={`workspace-params space-y-3 ${collapsed ? 'hidden lg:block' : ''}`}>
         {children}
       </div>
+      <div className="workspace-actions !mt-0">{actions}</div>
       <div className="workspace-results">{results}</div>
-      <div className="workspace-actions">{actions}</div>
     </div>
   );
 }

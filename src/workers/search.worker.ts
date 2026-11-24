@@ -1,4 +1,5 @@
 import { searchQrFrames } from '../engine/gen7/qrSearch';
+import { searchMisc7 } from '../engine/gen7/misc7';
 import { runEgg7Search, runId7Search, runMainGen7Search } from '../engine/gen7/searches';
 import type { WorkerRequest, WorkerResponse } from './protocol';
 
@@ -21,6 +22,11 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
 
   try {
     switch (req.type) {
+      case 'MISC_SEARCH': {
+        const result = searchMisc7(req.payload, onProgress);
+        post({ id: req.id, type: 'MISC_DONE', payload: result });
+        break;
+      }
       case 'MAIN_SEARCH': {
         const result = runMainGen7Search(req.payload, { onProgress });
         post({ id: req.id, type: 'MAIN_DONE', payload: result });

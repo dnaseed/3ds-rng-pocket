@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { QrMatch } from '../engine/gen7/qrSearch';
+import type { MiscSearchOutput, MiscSearchRequest } from '../engine/gen7/misc7';
 import type {
   EggSearchOutput,
   EggSearchRequest,
@@ -10,7 +11,7 @@ import type {
 } from '../engine/gen7/searches';
 import type { WorkerRequest, WorkerResponse } from './protocol';
 
-type AnySearchResult = MainSearchOutput | EggSearchOutput | IdSearchOutput | QrMatch[];
+type AnySearchResult = MainSearchOutput | EggSearchOutput | IdSearchOutput | QrMatch[] | MiscSearchOutput;
 
 export function useSearchWorker() {
   const workerRef = useRef<Worker | null>(null);
@@ -136,6 +137,11 @@ export function useSearchWorker() {
     [dispatch],
   );
 
+  const runMiscSearch = useCallback(
+    (payload: MiscSearchRequest) => dispatch<MiscSearchOutput>({ type: 'MISC_SEARCH', payload }),
+    [dispatch],
+  );
+
   return {
     isRunning,
     progress,
@@ -145,5 +151,6 @@ export function useSearchWorker() {
     runEggSearch,
     runIdSearch,
     runQrSearch,
+    runMiscSearch,
   };
 }

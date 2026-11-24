@@ -167,7 +167,8 @@ input[type='number'] {
     height: 100%;
     padding-bottom: 0;
   }
-  .egg-page > .search-workspace { flex: 1; min-height: 0; }
+  .egg-page > .search-workspace,
+  .more-page > .search-workspace { flex: 1; min-height: 0; }
   .workspace-results { display: flex; flex-direction: column; gap: .5rem; }
   .workspace-results > .scroll-mt-16 { flex: 1; min-height: 0; }
   .workspace-results .scroll-mt-16 > .space-y-2:has(> .overflow-y-auto) {

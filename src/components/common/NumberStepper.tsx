@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 interface NumberStepperProps {
   label?: string;
@@ -22,6 +22,7 @@ export function NumberStepper({
 }: NumberStepperProps) {
   const [draft, setDraft] = useState(() => String(value));
   const [focused, setFocused] = useState(false);
+  const inputId = useId();
 
   useEffect(() => {
     if (!focused) {
@@ -49,7 +50,7 @@ export function NumberStepper({
 
   return (
     <div className="space-y-1 min-w-0">
-      {label && <label className="block text-xs font-medium text-zinc-400 truncate">{label}</label>}
+      {label && <label htmlFor={inputId} className="block text-xs font-medium text-zinc-400 truncate">{label}</label>}
       <div className="flex items-center rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden h-[46px]">
         <button
           type="button"
@@ -65,6 +66,7 @@ export function NumberStepper({
           <Minus className="w-4 h-4" />
         </button>
         <input
+          id={inputId}
           type="text"
           inputMode={min < 0 ? 'text' : 'numeric'}
           pattern={min < 0 ? '-?[0-9]*' : '[0-9]*'}

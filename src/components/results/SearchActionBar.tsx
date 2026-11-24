@@ -8,6 +8,7 @@ interface SearchActionBarProps {
   progress: number;
   onSearch: () => void;
   onAbort: () => void;
+  searchLabel?: string;
 }
 
 export function SearchActionBar({
@@ -17,6 +18,7 @@ export function SearchActionBar({
   progress,
   onSearch,
   onAbort,
+  searchLabel,
 }: SearchActionBarProps) {
   const { i18n } = useApp();
 
@@ -57,7 +59,7 @@ export function SearchActionBar({
             className="flex-1 h-12 rounded-2xl bg-amber-500 text-zinc-950 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition shadow-lg shadow-amber-500/15"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>{i18n.t('app.search')}</span>
+            <span>{searchLabel ?? i18n.t('app.search')}</span>
           </button>
         )}
       </div>

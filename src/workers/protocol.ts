@@ -1,4 +1,5 @@
 import type { QrMatch } from '../engine/gen7/qrSearch';
+import type { MiscSearchOutput, MiscSearchRequest } from '../engine/gen7/misc7';
 import type {
   EggSearchOutput,
   EggSearchRequest,
@@ -9,6 +10,7 @@ import type {
 } from '../engine/gen7/searches';
 
 export type WorkerRequest =
+  | { id: number; type: 'MISC_SEARCH'; payload: MiscSearchRequest }
   | { id: number; type: 'MAIN_SEARCH'; payload: MainGen7SearchRequest }
   | { id: number; type: 'EGG_SEARCH'; payload: EggSearchRequest }
   | { id: number; type: 'ID_SEARCH'; payload: IdSearchRequest }
@@ -19,6 +21,7 @@ export type WorkerRequest =
     };
 
 export type WorkerResponse =
+  | { id: number; type: 'MISC_DONE'; payload: MiscSearchOutput }
   | { id: number; type: 'PROGRESS'; percent: number }
   | { id: number; type: 'MAIN_DONE'; payload: MainSearchOutput }
   | { id: number; type: 'EGG_DONE'; payload: EggSearchOutput }

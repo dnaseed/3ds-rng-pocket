@@ -22,16 +22,17 @@
 - **Egg.** Search egg frames, follow the **Shortest Path** Accept/Reject checklist, recover an egg seed with **127 Magikarp**, or use **Main RNG Egg** to calculate the PID.
 - **Event and Trainer ID.** Import Mystery Gifts from `.wc7` or `.wc7full` files, configure event locks, or search trainer IDs with a clock-hand preview.
 - **Trainer profiles.** Save profiles for each game, import or export them as JSON, and switch between English and Italian.
+- **Misc RNG Tool.** Open **Tools** on desktop or **More → Tools** on mobile to search for Pokérus, Festival Plaza facilities, Battle Tree trainers, Roto Loto powers, and berries by location.
 
 ## Desktop parity and scope
 
 Gen 7 frame outputs were compared row by row with **3DSRNGTool v1.0.6** on sampled **Ultra Sun** and **Moon** scenarios covering Stationary, Wild, Egg, Event, and Trainer ID RNG.
 
-Clock readings and frame advances are entered manually. Battle Tree, Festival Plaza, and Roto Loto are outside the current release. Planned additions include Gen 6 (X/Y and Omega Ruby/Alpha Sapphire) and optional console integration.
+Clock readings and frame advances are entered manually. Planned additions include Gen 6 (X/Y and Omega Ruby/Alpha Sapphire) and optional console integration.
 
 ## Use online or install on a phone
 
-You can use [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) directly in any mobile or desktop browser with no local setup. At widths of 1024 px and above, the top navigation opens all seven tools directly. Search settings and results appear side by side, so you can adjust an encounter while keeping the previous frames in view.
+You can use [3DS RNG Pocket](https://dnaseed.github.io/3ds-rng-pocket/) directly in any mobile or desktop browser with no local setup. At widths of 1024 px and above, the top navigation opens all eight sections directly. Search settings and results appear side by side, so you can adjust an encounter while keeping the previous frames in view.
 
 To install it as an offline PWA on your phone, open the same link in your mobile browser: on Android, choose **Install app** or **Add to Home screen** from the browser menu; on iOS Safari, tap **Share → Add to Home Screen**.
 

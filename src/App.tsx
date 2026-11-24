@@ -4,6 +4,7 @@ import { EggPage } from './pages/EggPage';
 import { EventPage } from './pages/EventPage';
 import { HomeMenuPage } from './pages/HomeMenuPage';
 import { IdPage } from './pages/IdPage';
+import { MiscPage } from './pages/MiscPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { SeedPage } from './pages/SeedPage';
 import { StationaryPage } from './pages/StationaryPage';
@@ -22,10 +23,19 @@ function AppShell() {
       <TopHeader />
 
       <nav className="hidden lg:flex w-full max-w-[1440px] mx-auto px-6 gap-2 border-b border-zinc-800">
-        {(['seed', 'stationary', 'wild', 'egg', 'event', 'id', 'profiles'] as const).map((tab) => {
-          const secondary = tab === 'event' || tab === 'id' || tab === 'profiles';
+        {(['seed', 'stationary', 'wild', 'egg', 'event', 'id', 'tools', 'profiles'] as const).map((tab) => {
+          const secondary = tab === 'event' || tab === 'id' || tab === 'tools' || tab === 'profiles';
           const active = secondary ? activeTab === 'more' && moreSection === tab : activeTab === tab;
-          const label = tab === 'event' ? 'Event' : tab === 'id' ? 'ID RNG' : tab === 'profiles' ? i18n.t('profiles.title') : i18n.t(`nav.${tab}`);
+          const label =
+            tab === 'event'
+              ? 'Event'
+              : tab === 'id'
+                ? 'ID RNG'
+                : tab === 'tools'
+                  ? i18n.t('misc.tools')
+                  : tab === 'profiles'
+                    ? i18n.t('profiles.title')
+                    : i18n.t(`nav.${tab}`);
           return (
             <button key={tab} aria-current={active ? 'page' : undefined}
               className="min-h-11 px-3 border-b-2 border-transparent text-sm text-zinc-300 aria-[current=page]:border-amber-400 aria-[current=page]:text-amber-200"
@@ -45,12 +55,13 @@ function AppShell() {
 
         {activeTab === 'more' && (
           <div className="more-page space-y-3">
-            <div className="lg:hidden grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+            <div className="lg:hidden grid grid-cols-4 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
               {(
                 [
                   { id: 'event', label: 'Event' },
                   { id: 'id', label: 'ID RNG' },
-                  { id: 'profiles', label: i18n.t('profiles.title') },
+                  { id: 'tools', label: i18n.t('misc.tools') },
+                  { id: 'profiles', label: i18n.t('profiles.shortTitle') },
                 ] as { id: MoreSection; label: string }[]
               ).map((sec) => (
                 <button
@@ -58,7 +69,7 @@ function AppShell() {
                   type="button"
                   onClick={() => setMoreSection(sec.id)}
                   aria-pressed={moreSection === sec.id}
-                  className="choice-button min-h-10 rounded-xl text-xs font-semibold transition px-2 truncate"
+                  className="choice-button min-h-10 rounded-xl text-xs font-semibold transition px-1.5 truncate"
                 >
                   {sec.label}
                 </button>
@@ -67,6 +78,7 @@ function AppShell() {
 
             {moreSection === 'event' && <EventPage />}
             {moreSection === 'id' && <IdPage />}
+            {moreSection === 'tools' && <MiscPage />}
             {moreSection === 'profiles' && <ProfilesPage />}
           </div>
         )}

@@ -14,7 +14,7 @@ import { DEFAULT_SEED_API_BASE } from '../services/sfmtSeedApi';
 
 export type ActiveGen = 'home' | 'gen7';
 export type AppTab = 'seed' | 'stationary' | 'wild' | 'egg' | 'more';
-export type MoreSection = 'event' | 'id' | 'profiles';
+export type MoreSection = 'event' | 'id' | 'profiles' | 'tools';
 export type ClockVisualStyle = 'svg' | 'sprite';
 
 export interface AroundTargetJump {
