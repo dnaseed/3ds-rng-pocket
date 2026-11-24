@@ -138,16 +138,16 @@ function parseDict(src: string, marker: string): Record<number, number> {
   return dict;
 }
 
-function extractPersonalUSUM() {
-  const buf = fs.readFileSync(path.join(REF_DIR, 'Resources', 'bytes', 'personal_uu'));
-  const SIZE = 0x54; // 84 bytes per entry
-  if (buf.length % SIZE !== 0) {
-    throw new Error(`Invalid personal_uu length: ${buf.length}`);
+function extractPersonal(resource: 'personal_ao' | 'personal_uu') {
+  const buf = fs.readFileSync(path.join(REF_DIR, 'Resources', 'bytes', resource));
+  const size = resource === 'personal_ao' ? 0x50 : 0x54;
+  if (buf.length % size !== 0) {
+    throw new Error(`Invalid ${resource} length: ${buf.length}`);
   }
-  const count = buf.length / SIZE;
+  const count = buf.length / size;
   const entries = [];
   for (let i = 0; i < count; i++) {
-    const o = i * SIZE;
+    const o = i * size;
     // Note: in PersonalInfoORAS/USUM, bytes are HP=0x00, ATK=0x01, DEF=0x02, SPE=0x03, SPA=0x04, SPD=0x05.
     // We normalize to [HP, ATK, DEF, SPA, SPD, SPE] matching MainForm BS & Pokemon.getStats!
     entries.push({
@@ -164,7 +164,9 @@ function extractPersonalUSUM() {
       gender: buf.readUInt8(o + 0x12),
       eggGroups: [buf.readUInt8(o + 0x16), buf.readUInt8(o + 0x17)],
       abilities: [buf.readUInt8(o + 0x18), buf.readUInt8(o + 0x19), buf.readUInt8(o + 0x1a)],
-      callRate: buf.readUInt8(o + 0x1b),
+      ...(resource === 'personal_ao'
+        ? { escapeRate: buf.readUInt8(o + 0x1b) }
+        : { callRate: buf.readUInt8(o + 0x1b) }),
       formStatsIndex: buf.readUInt16LE(o + 0x1c),
       formeCount: buf.readUInt8(o + 0x20),
     });
@@ -218,6 +220,66 @@ function parseCSharpString(expr: string | undefined): string {
   if (!expr) return '';
   const m = expr.match(/^"(.*)"$/);
   return m ? m[1]! : expr;
+}
+
+function extractStationaryGen6() {
+  const src = stripLineComments(readRef('Gen6/PKM6.cs'));
+  const defaults = findNamedBlock(src, 'static PokemonList Default =');
+  const babyMons = parseIntList(findNamedBlock(readRef('Pokemon/Pokemon.cs'), 'BabyMons ='));
+
+  function extractTable(group: 'XY' | 'ORAS' | 'VC') {
+    const categories = splitTopLevelItems(findNamedBlock(src, `Species_${group} =`));
+    return categories.map((category, categoryIndex) => {
+      const body = category === 'Default' ? defaults : extractBraceBlock(category, category.indexOf('{')).block;
+      const fields = parseObjectAssignments(body);
+      const list = fields.List;
+      if (!list) throw new Error(`Missing Gen 6 Stationary list in ${group}, category ${categoryIndex}`);
+      const items = splitTopLevelItems(extractBraceBlock(list, list.indexOf('{')).block);
+      const text = parseCSharpString(fields.Text);
+      return {
+        text,
+        list: items.map((item, index) => {
+          const id = `${group.toLowerCase()}:${categoryIndex}:${index}`;
+          const preset = parseObjectAssignments(extractBraceBlock(item, item.indexOf('{')).block);
+          const version = preset.Version?.replace(/^GameVersion\./, '') ?? 'Gen6';
+          if (!['Gen6', 'XY', 'ORAS', 'X', 'Y', 'OR', 'AS'].includes(version)) {
+            throw new Error(`Unsupported game version in ${id}: ${version}`);
+          }
+          const number = (key: string, fallback: number) =>
+            preset[key] === undefined ? fallback : parseCSharpNumber(preset[key]);
+          const flag = (key: string) => parseBool(preset[key], false);
+          const ivs = preset.IVs ? parseNewArrayNumbers(preset.IVs) : null;
+          if (ivs && (ivs.length !== 6 || ivs.some(iv => !Number.isInteger(iv) || iv < -1 || iv > 31))) {
+            throw new Error(`Invalid IVs in ${id}`);
+          }
+          return {
+            id,
+            version,
+            species: number('Species', 0),
+            forme: number('Forme', 0),
+            level: number('Level', 0),
+            delay: number('Delay', 0),
+            cry: number('Cry', 0xff),
+            ability: number('Ability', 0),
+            gender: number('Gender', 0),
+            nature: number('Nature', 0xff),
+            ivs,
+            otTsv: preset.OTTSV === undefined ? null : parseCSharpNumber(preset.OTTSV),
+            shinyLocked: flag('ShinyLocked'),
+            gift: flag('Gift'),
+            egg: flag('Egg'),
+            conceptual: flag('Conceptual'),
+            unstable: flag('Unstable'),
+            bank: flag('Bank'),
+            instantSync: flag('InstantSync'),
+            numOfPkm: number('NumOfPkm', 1),
+          };
+        }),
+      };
+    });
+  }
+
+  return { xy: extractTable('XY'), oras: extractTable('ORAS'), vc: extractTable('VC'), babyMons };
 }
 
 function extractStationaryTable(marker: 'Species_USUM =' | 'Species_SM =') {
@@ -606,7 +668,9 @@ function copyClockAssets() {
 function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const personal = extractPersonalUSUM();
+  const personal = extractPersonal('personal_uu');
+  const personalORAS = extractPersonal('personal_ao');
+  const stationaryGen6 = extractStationaryGen6();
   const stationaryUSUM = extractStationaryTable('Species_USUM =');
   const stationarySM = extractStationaryTable('Species_SM =');
   const wild = extractWildUSUM();
@@ -614,6 +678,8 @@ function main() {
   copyClockAssets();
 
   fs.writeFileSync(path.join(OUT_DIR, 'personal_usum.json'), JSON.stringify(personal));
+  fs.writeFileSync(path.join(OUT_DIR, 'personal_oras.json'), JSON.stringify(personalORAS));
+  fs.writeFileSync(path.join(OUT_DIR, 'stationary_gen6.json'), JSON.stringify(stationaryGen6, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, 'stationary_usum.json'), JSON.stringify(stationaryUSUM, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, 'stationary_sm.json'), JSON.stringify(stationarySM, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, 'wild_usum.json'), JSON.stringify(wild.usum));
