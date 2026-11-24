@@ -12,7 +12,7 @@ import {
 } from '../services/profileStorage';
 import { DEFAULT_SEED_API_BASE } from '../services/sfmtSeedApi';
 
-export type ActiveGen = 'home' | 'gen7';
+export type ActiveGen = 'home' | 'gen7' | 'gen6';
 export type AppTab = 'seed' | 'stationary' | 'wild' | 'egg' | 'more';
 export type MoreSection = 'event' | 'id' | 'profiles' | 'tools';
 export type ClockVisualStyle = 'svg' | 'sprite';

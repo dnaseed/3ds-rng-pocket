@@ -6,7 +6,7 @@ import type { RngFilterOptions } from '../../engine/core/types';
 import { useApp } from '../../store/AppContext';
 import { NumberStepper } from '../common/NumberStepper';
 import { NumericInput } from '../common/NumericInput';
-import { IvCalculator, type EncounterStats } from './IvCalculator';
+import { IvCalculator, type EncounterStats, type IvPersonalData } from './IvCalculator';
 
 export type FilterSheetMode = 'stationary' | 'wild' | 'egg' | 'event';
 
@@ -21,6 +21,7 @@ interface FilterBottomSheetProps {
   npcCount?: number;
   allowExactStats?: boolean;
   encounter?: EncounterStats;
+  personalData?: IvPersonalData;
 }
 
 const STAT_LABELS = ['PS', 'Atk', 'Def', 'SpA', 'SpD', 'Vel'] as const;
@@ -66,6 +67,7 @@ export function FilterBottomSheet({
   npcCount = 0,
   allowExactStats = true,
   encounter,
+  personalData,
 }: FilterBottomSheetProps) {
   const { i18n, lang } = useApp();
 
@@ -226,7 +228,7 @@ export function FilterBottomSheet({
 
           {/* Quick IV Presets */}
           <div className="space-y-1.5">
-            <IvCalculator encounter={encounter} statNames={statNames}
+            <IvCalculator encounter={encounter} statNames={statNames} personalData={personalData}
               onApply={ranges => onChange({ ...filter, ...ranges, byStats: false, skip: false })} />
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-zinc-400">

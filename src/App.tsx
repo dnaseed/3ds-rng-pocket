@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BottomNav } from './components/layout/BottomNav';
 import { TopHeader } from './components/layout/TopHeader';
 import { EggPage } from './pages/EggPage';
@@ -11,11 +12,16 @@ import { StationaryPage } from './pages/StationaryPage';
 import { WildPage } from './pages/WildPage';
 import { AppProvider, useApp, type MoreSection } from './store/AppContext';
 
+const Gen6Shell = lazy(() => import('./pages/gen6/Gen6Shell'));
+
 function AppShell() {
   const { activeGen, activeTab, setActiveTab, moreSection, setMoreSection, i18n } = useApp();
 
   if (activeGen === 'home') {
     return <HomeMenuPage />;
+  }
+  if (activeGen === 'gen6') {
+    return <Suspense fallback={<p className="p-4 text-zinc-300">{i18n.t('gen6.loading')}</p>}><Gen6Shell /></Suspense>;
   }
 
   return (

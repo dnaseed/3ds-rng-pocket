@@ -58,6 +58,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) return 'vendor';
+          if (/\/generated\/(personal_oras|stationary_gen6)\.json$/.test(id)) return 'gen6-data';
           if (id.includes('src/data/generated')) return 'usum-data';
           return undefined;
         },

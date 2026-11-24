@@ -9,10 +9,16 @@ export interface EncounterStats {
   level?: number;
 }
 
+export interface IvPersonalData {
+  speciesCount: number;
+  getEntry: (species: number, forme?: number) => Pick<ReturnType<typeof getFormeEntry>, 'formeCount' | 'stats'>;
+}
+
 interface Props {
   encounter?: EncounterStats;
   statNames: readonly string[];
   onApply: (ranges: IvRanges) => void;
+  personalData?: IvPersonalData;
 }
 
 const inputClass = 'block mt-1 h-10 w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100';
@@ -36,20 +42,22 @@ export function IvCalculator(props: Props) {
   );
 }
 
-function CalculatorFields({ encounter, statNames, onApply }: Props) {
+function CalculatorFields({ encounter, statNames, onApply, personalData }: Props) {
   const { i18n, isUltra } = useApp();
+  const getEntry = personalData?.getEntry ?? getFormeEntry;
+  const speciesCount = personalData?.speciesCount ?? (isUltra ? 807 : 802);
   const [species, setSpecies] = useState(encounter?.species ?? 0);
   const [forme, setForme] = useState(encounter?.forme ?? 0);
   const [level, setLevel] = useState(encounter?.level ? String(encounter.level) : '');
   const [nature, setNature] = useState(-1);
   const [trait, setTrait] = useState(-1);
   const [observed, setObserved] = useState<string[]>(Array(6).fill(''));
-  const speciesOptions = useMemo(() => Array.from({ length: isUltra ? 807 : 802 }, (_, i) =>
-    <option key={i + 1} value={i + 1}>{i18n.getSpeciesName(i + 1)}</option>), [i18n, isUltra]);
-  const formCount = getFormeEntry(species).formeCount;
+  const speciesOptions = useMemo(() => Array.from({ length: speciesCount }, (_, i) =>
+    <option key={i + 1} value={i + 1}>{i18n.getSpeciesName(i + 1)}</option>), [i18n, speciesCount]);
+  const formCount = getEntry(species).formeCount;
   const ready = species > 0 && nature >= 0 && level !== '' && observed.every(value => value !== '');
   const ranges = ready
-    ? getIvRanges(getFormeEntry(species, forme).stats, Number(level), nature, observed.map(Number),
+    ? getIvRanges(getEntry(species, forme).stats, Number(level), nature, observed.map(Number),
       trait < 0 ? undefined : { stat: Math.floor(trait / 5), remainder: trait % 5 })
     : null;
 
@@ -58,7 +66,7 @@ function CalculatorFields({ encounter, statNames, onApply }: Props) {
       <p>{i18n.t('filters.calcZeroEvs')}</p>
       <div className="grid grid-cols-2 gap-2">
         <label>{i18n.t('event.species')}
-          <select className={inputClass} value={species} onChange={event => {
+          <select aria-label={i18n.t('event.species')} className={inputClass} value={species} onChange={event => {
             setSpecies(Number(event.target.value));
             setForme(0);
           }}>
@@ -67,7 +75,7 @@ function CalculatorFields({ encounter, statNames, onApply }: Props) {
           </select>
         </label>
         {formCount > 1 && <label>{i18n.t('event.forme')}
-          <select className={inputClass} value={forme} onChange={event => setForme(Number(event.target.value))}>
+          <select aria-label={i18n.t('event.forme')} className={inputClass} value={forme} onChange={event => setForme(Number(event.target.value))}>
             {Array.from({ length: formCount }, (_, i) => <option key={i} value={i}>{i}</option>)}
           </select>
         </label>}
@@ -76,14 +84,14 @@ function CalculatorFields({ encounter, statNames, onApply }: Props) {
             value={level} onChange={event => setLevel(event.target.value)} />
         </label>
         <label>{i18n.t('search.nature')}
-          <select className={inputClass} value={nature} onChange={event => setNature(Number(event.target.value))}>
+          <select aria-label={i18n.t('search.nature')} className={inputClass} value={nature} onChange={event => setNature(Number(event.target.value))}>
             <option value={-1}>—</option>
             {Array.from({ length: 25 }, (_, i) => <option key={i} value={i}>{i18n.getNatureName(i)}</option>)}
           </select>
         </label>
       </div>
       <label className="block">{i18n.t('filters.characteristic')}
-        <select className={inputClass} value={trait} onChange={event => setTrait(Number(event.target.value))}>
+        <select aria-label={i18n.t('filters.characteristic')} className={inputClass} value={trait} onChange={event => setTrait(Number(event.target.value))}>
           <option value={-1}>—</option>
           {statNames.map((name, index) => <optgroup key={name} label={name}>
             {Array.from({ length: 5 }, (_, offset) => {
