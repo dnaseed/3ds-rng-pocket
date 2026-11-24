@@ -34,6 +34,7 @@ export interface Stationary6SearchRequest {
 }
 
 export interface Stationary6Row extends RngResultBase {
+  kind: 'stationary';
   frame: number;
   shift: number;
   elapsedFrames: number;
@@ -168,6 +169,7 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
     const resultGender = randomGender ? (boundedRoll(nextWord(), 252) >= gender ? 1 : 2) : gender;
     const prv = getPRV(pid);
     yield {
+      kind: 'stationary',
       frame, shift: frame - targetFrame, elapsedFrames: frame - minFrame,
       rand, state: states[head]!, delay,
       framesUsed: (cursor - start) & 0xff,

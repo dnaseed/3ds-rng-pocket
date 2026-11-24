@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import type { Id6WorkerRequest, Stationary6WorkerRequest } from '../engine/gen6/searches';
 import type { QrMatch } from '../engine/gen7/qrSearch';
 import type { MiscSearchOutput, MiscSearchRequest } from '../engine/gen7/misc7';
 import type {
@@ -9,11 +10,13 @@ import type {
   MainGen7SearchRequest,
   MainSearchOutput,
 } from '../engine/gen7/searches';
-import type { WorkerRequest, WorkerResponse } from './protocol';
+import type { WorkerCommand, WorkerRequest, WorkerResponse } from './protocol';
 
-type AnySearchResult = MainSearchOutput | EggSearchOutput | IdSearchOutput | QrMatch[] | MiscSearchOutput;
+type CompletedSearch = Extract<WorkerResponse, { payload: unknown }>;
+type AnySearchResult = CompletedSearch['payload'];
 
-export function useSearchWorker() {
+/** A changed scope (for example the active game) invalidates the in-flight request. */
+export function useSearchWorker(scope?: string) {
   const workerRef = useRef<Worker | null>(null);
   const activeIdRef = useRef<number>(0);
   const resolverRef = useRef<{
@@ -32,7 +35,7 @@ export function useSearchWorker() {
     });
     w.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const msg = ev.data;
-      if (msg.id !== activeIdRef.current) return;
+      if (workerRef.current !== w || msg.id !== activeIdRef.current) return;
 
       if (msg.type === 'PROGRESS') {
         setProgress(msg.percent);
@@ -53,6 +56,7 @@ export function useSearchWorker() {
       resolverRef.current = null;
     };
     w.onerror = (ev) => {
+      if (workerRef.current !== w) return;
       isRunningRef.current = false;
       setIsRunning(false);
       const errMsg = ev.message || 'Worker execution error';
@@ -64,39 +68,31 @@ export function useSearchWorker() {
     return w;
   }, []);
 
-  useEffect(() => {
-    spawnWorker();
-    return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
-    };
-  }, [spawnWorker]);
-
-  const abort = useCallback(() => {
-    if (workerRef.current) {
-      workerRef.current.terminate();
-      workerRef.current = null;
-    }
+  const disposeWorker = useCallback(() => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
     activeIdRef.current++;
-    if (resolverRef.current) {
-      resolverRef.current.reject(new Error('ABORTED'));
-      resolverRef.current = null;
-    }
+    resolverRef.current?.reject(new Error('ABORTED'));
+    resolverRef.current = null;
     isRunningRef.current = false;
+  }, []);
+
+  useLayoutEffect(() => {
     setIsRunning(false);
     setProgress(0);
-    spawnWorker();
-  }, [spawnWorker]);
+    setError(null);
+    return disposeWorker;
+  }, [scope, disposeWorker]);
+
+  const abort = useCallback(() => {
+    disposeWorker();
+    setIsRunning(false);
+    setProgress(0);
+  }, [disposeWorker]);
 
   const dispatch = useCallback(
-    <T extends AnySearchResult>(reqWithoutId: Omit<WorkerRequest, 'id'>): Promise<T> => {
-      if (isRunningRef.current && workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-        resolverRef.current?.reject(new Error('ABORTED'));
-        resolverRef.current = null;
-        spawnWorker();
-      }
+    <T extends AnySearchResult>(command: WorkerCommand): Promise<T> => {
+      if (isRunningRef.current) disposeWorker();
       const w = workerRef.current ?? spawnWorker();
       const id = ++activeIdRef.current;
       isRunningRef.current = true;
@@ -109,10 +105,20 @@ export function useSearchWorker() {
           resolve: resolve as (val: AnySearchResult) => void,
           reject,
         };
-        w.postMessage({ ...reqWithoutId, id } as WorkerRequest);
+        const request: WorkerRequest = { ...command, id };
+        try {
+          w.postMessage(request);
+        } catch (err) {
+          resolverRef.current = null;
+          isRunningRef.current = false;
+          setIsRunning(false);
+          const failure = err instanceof Error ? err : new Error(String(err));
+          setError(failure.message);
+          reject(failure);
+        }
       });
     },
-    [spawnWorker],
+    [disposeWorker, spawnWorker],
   );
 
   const runMainSearch = useCallback(
@@ -142,6 +148,21 @@ export function useSearchWorker() {
     [dispatch],
   );
 
+  const runStationary6Search = useCallback(
+    (payload: Stationary6WorkerRequest) =>
+      dispatch<Extract<CompletedSearch, { type: 'STATIONARY6_DONE' }>['payload']>({
+        type: 'STATIONARY6_SEARCH', payload,
+      }),
+    [dispatch],
+  );
+
+  const runId6Search = useCallback(
+    (payload: Id6WorkerRequest) => dispatch<Extract<CompletedSearch, { type: 'ID6_DONE' }>['payload']>({
+      type: 'ID6_SEARCH', payload,
+    }),
+    [dispatch],
+  );
+
   return {
     isRunning,
     progress,
@@ -152,5 +173,7 @@ export function useSearchWorker() {
     runIdSearch,
     runQrSearch,
     runMiscSearch,
+    runStationary6Search,
+    runId6Search,
   };
 }

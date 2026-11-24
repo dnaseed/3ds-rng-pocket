@@ -1,6 +1,6 @@
 import { getHiddenPowerValue, getStats } from './pokemonMath';
-import type { AnyResult7, IdFilterOptions, IdResult7, RngFilterOptions } from './types';
-import { toHex64 } from '../math/uint';
+import type { AnyResult7, IdFilterOptions, IdResult6, IdResult7, RngFilterOptions, RngResultBase } from './types';
+import { formatEggSeedStr, toHex64 } from '../math/uint';
 
 export function createDefaultRngFilter(): RngFilterOptions {
   return {
@@ -30,7 +30,7 @@ export function createDefaultRngFilter(): RngFilterOptions {
 
 export function checkRngFilter(
   filter: RngFilterOptions,
-  result: AnyResult7,
+  result: AnyResult7 | (RngResultBase & { kind: 'stationary' }),
   isPokemon = true,
 ): boolean {
   if (!isPokemon) return false;
@@ -178,7 +178,7 @@ export class CompiledIdFilter {
     }
   }
 
-  public check(id: IdResult7): boolean {
+  public check(id: IdResult6 | IdResult7): boolean {
     if (this.opts.skip) return true;
 
     if (this.opts.idList.some((s) => s.trim().length > 0)) {
@@ -190,7 +190,7 @@ export class CompiledIdFilter {
     }
 
     if (this.opts.randList.some((s) => s.trim().length > 0)) {
-      const randStr = toHex64(id.randLo, id.randHi);
+      const randStr = 'state' in id ? formatEggSeedStr(id.state) : toHex64(id.randLo, id.randHi);
       if (this.opts.regex) {
         if (!this.randPatterns.some((re) => re.test(randStr))) return false;
       } else {
@@ -204,7 +204,7 @@ export class CompiledIdFilter {
     return true;
   }
 
-  private checkId(id: IdResult7): boolean {
+  private checkId(id: IdResult6 | IdResult7): boolean {
     if (this.opts.idType === 2) {
       const fullId = (((id.sid & 0xffff) << 16) | (id.tid & 0xffff)) >>> 0;
       return this.fullIdSet.has(fullId);
@@ -213,7 +213,8 @@ export class CompiledIdFilter {
     let str = '';
     if (this.opts.idType === 0) str = String(id.tid).padStart(5, '0');
     else if (this.opts.idType === 1) str = String(id.sid).padStart(5, '0');
-    else if (this.opts.idType === 3) str = String(id.g7tid).padStart(6, '0');
+    else if ('g7tid' in id) str = String(id.g7tid).padStart(6, '0');
+    else return false;
 
     if (this.opts.regex) {
       return this.idPatterns.some((re) => re.test(str));

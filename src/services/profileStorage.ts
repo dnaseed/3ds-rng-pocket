@@ -1,4 +1,4 @@
-import type { GameVersionId } from '../engine/core/types';
+import { isGen6GameVersion, type GameVersionId } from '../engine/core/types';
 import type { TinyState } from '../engine/rng/types';
 
 export interface TrainerProfile {
@@ -172,6 +172,9 @@ export function importProfilesJson(jsonStr: string): ProfileStoreData {
     candidateList = parsed;
   } else if (parsed && typeof parsed === 'object') {
     const obj = parsed as Record<string, unknown>;
+    if (obj.generation === 6 || isGen6GameVersion(obj.gameVersion)) {
+      throw new Error('This file contains Gen 6 trainer profiles.');
+    }
     if (Array.isArray(obj.profiles)) {
       candidateList = obj.profiles;
       if (typeof obj.activeProfileId === 'string') {
@@ -181,6 +184,11 @@ export function importProfilesJson(jsonStr: string): ProfileStoreData {
       const single = sanitizeProfile(parsed);
       if (single) candidateList = [single];
     }
+  }
+
+  if (candidateList.some(profile => profile !== null && typeof profile === 'object' &&
+    'gameVersion' in profile && isGen6GameVersion(profile.gameVersion))) {
+    throw new Error('This file contains Gen 6 trainer profiles.');
   }
 
   const profiles = candidateList

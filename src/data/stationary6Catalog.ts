@@ -1,7 +1,8 @@
 import catalog from './generated/stationary_gen6.json';
 import { getPersonalEntry6 } from './personalTable6';
+import type { GameVersion6 } from '../engine/core/types';
 
-export type Stationary6Game = 'X' | 'Y' | 'OR' | 'AS' | 'VC';
+export type Stationary6Game = GameVersion6 | 'VC';
 export type Stationary6Preset = (typeof catalog.xy)[number]['list'][number];
 
 export function getStationary6Categories(game: Stationary6Game) {

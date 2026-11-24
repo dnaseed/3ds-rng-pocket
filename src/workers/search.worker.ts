@@ -9,7 +9,7 @@ function post(msg: WorkerResponse): void {
   self.postMessage(msg);
 }
 
-self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
+self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
   let lastProgressSent = 0;
   const onProgress = (percent: number) => {
@@ -22,6 +22,18 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
 
   try {
     switch (req.type) {
+      case 'STATIONARY6_SEARCH': {
+        const { runStationary6Search } = await import('../engine/gen6/searches');
+        const payload = runStationary6Search(req.payload, onProgress);
+        post({ id: req.id, type: 'STATIONARY6_DONE', payload });
+        break;
+      }
+      case 'ID6_SEARCH': {
+        const { runId6Search } = await import('../engine/gen6/searches');
+        const payload = runId6Search(req.payload, onProgress);
+        post({ id: req.id, type: 'ID6_DONE', payload });
+        break;
+      }
       case 'MISC_SEARCH': {
         const result = searchMisc7(req.payload, onProgress);
         post({ id: req.id, type: 'MISC_DONE', payload: result });

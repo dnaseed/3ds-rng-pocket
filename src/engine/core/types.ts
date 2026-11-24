@@ -1,6 +1,11 @@
 import type { TinyState } from '../rng/types';
 
 export type GameVersionId = 'US' | 'UM' | 'S' | 'M';
+export type GameVersion6 = 'X' | 'Y' | 'OR' | 'AS';
+
+export function isGen6GameVersion(value: unknown): value is GameVersion6 {
+  return value === 'X' || value === 'Y' || value === 'OR' || value === 'AS';
+}
 
 export function isUltraVersion(v: GameVersionId): boolean {
   return v === 'US' || v === 'UM';
@@ -125,6 +130,16 @@ export interface RngFilterOptions {
 }
 
 export type IdFilterType = 0 | 1 | 2 | 3; // 0=TID, 1=SID, 2=FullID, 3=G7TID
+
+export interface IdResult6 {
+  frame: number;
+  state: TinyState; // S0 through S3, before drawing this frame
+  rand: number;
+  tid: number;
+  sid: number;
+  tsv: number;
+  trv: number;
+}
 
 export interface IdFilterOptions {
   skip: boolean;
