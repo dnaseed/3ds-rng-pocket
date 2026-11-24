@@ -61,6 +61,10 @@ export default function Gen6Shell() {
     if (section === 'event' || section === 'id' || section === 'tools' || section === 'profiles') setMoreSection(section);
     setTab(section);
   };
+  const openTimeline = () => {
+    setTab('seed');
+    setSeedMode('timeline');
+  };
 
   return <div className="app-shell min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col">
     <GenerationHeader mt activeProfile={{ ...profile, ...computeTsvTrv(profile.tid, profile.sid) }}
@@ -78,8 +82,8 @@ export default function Gen6Shell() {
       {tab === 'egg' && <Egg6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
       {tab === 'event' && <Event6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
       {tab === 'tools' && <Pokerus6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
-      {tab === 'stationary' && <Stationary6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} />}
-      {tab === 'wild' && <Wild6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} />}
+      {tab === 'stationary' && <Stationary6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} />}
+      {tab === 'wild' && <Wild6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} />}
       {tab === 'id' && <Id6Page key={profileScope} scope={profileScope} session={session} updateSession={updateSession} />}
       {tab === 'profiles' && <Profiles6Page store={store} updateStore={updateStore} />}
     </main>

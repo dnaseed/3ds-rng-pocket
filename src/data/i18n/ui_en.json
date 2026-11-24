@@ -174,6 +174,9 @@
     "profileImported": "Gen 6 profiles imported",
     "profileSaved": "Profile saved",
     "openStationary": "Go to Stationary",
+    "tinyTimelineTool": "Tiny Timeline Tool",
+    "timelineActive": "Calibration active",
+    "timelineNeedsSetup": "Configure a TinyMT state and calls in Tiny Timeline Tool before running a Timeline search.",
     "gameNames": { "X": "Pokémon X", "Y": "Pokémon Y", "OR": "Omega Ruby", "AS": "Alpha Sapphire", "VC": "Poké Transporter" },
     "categories": { "-": "Manual encounter", "Pokemon Link": "Pokémon Link", "Poke Transporter": "Poké Transporter" }
   },

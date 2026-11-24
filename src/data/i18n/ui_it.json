@@ -174,6 +174,9 @@
     "profileImported": "Profili Gen 6 importati",
     "profileSaved": "Profilo salvato",
     "openStationary": "Vai a Stationary",
+    "tinyTimelineTool": "Tiny Timeline Tool",
+    "timelineActive": "Calibrazione attiva",
+    "timelineNeedsSetup": "Configura stato TinyMT e chiamate in Tiny Timeline Tool prima di avviare una ricerca Timeline.",
     "gameNames": { "X": "Pokémon X", "Y": "Pokémon Y", "OR": "Rubino Omega", "AS": "Zaffiro Alpha", "VC": "Pokétrasferitore" },
     "categories": { "-": "Incontro manuale", "Legendary": "Leggendari", "Hoenn Legendary": "Leggendari di Hoenn", "Johto Legendary": "Leggendari di Johto", "Sinnoh Legendary": "Leggendari di Sinnoh", "Unova Legendary": "Leggendari di Unima", "Pokemon Link": "Pokémon Link", "In-Game Gift": "Regali in gioco", "In-Game Trade": "Scambi in gioco", "Normal Stationary": "Incontri fissi", "Starters": "Starter", "Fossils": "Fossili", "Berry Tree": "Alberi di bacche", "Ambush Encounters": "Incontri a sorpresa", "Poke Transporter": "Pokétrasferitore" }
   },
