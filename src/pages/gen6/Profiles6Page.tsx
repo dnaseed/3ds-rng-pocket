@@ -1,3 +1,4 @@
+import { getVersionBadgeClass } from '../../components/layout/TopHeader';
 import { useRef, useState } from 'react';
 import { Download, Plus, Upload } from 'lucide-react';
 import { isGen6GameVersion } from '../../engine/core/types';
@@ -5,12 +6,13 @@ import { exportProfiles6Json, importProfiles6Json, type ProfileStore6, type Trai
 import { computeTsvTrv } from '../../services/profileStorage';
 import { useApp } from '../../store/AppContext';
 import { buttonClass, cardClass, fieldClass, labelClass, NumberField, primaryClass } from './fields';
+import { Check6 } from './ToolFields6';
 
 export function Profiles6Page({ store, updateStore }: {
   store: ProfileStore6;
   updateStore: (store: ProfileStore6) => void;
 }) {
-  const { i18n } = useApp();
+  const { i18n, lang, setLang } = useApp();
   const [editing, setEditing] = useState<TrainerProfile6 | null>(null);
   const [notice, setNotice] = useState('');
   const [importError, setImportError] = useState(false);
@@ -74,11 +76,7 @@ export function Profiles6Page({ store, updateStore }: {
         <NumberField label={t('profiles.tid')} value={editing.tid} max={65535} onChange={tid => setEditing({ ...editing, tid })} />
         <NumberField label={t('profiles.sid')} value={editing.sid} max={65535} onChange={sid => setEditing({ ...editing, sid })} />
       </div>
-      <label className="flex min-h-9 items-center gap-2 text-sm">
-        <input type="checkbox" className="size-4 accent-amber-400" checked={editing.shinyCharm}
-          onChange={event => setEditing({ ...editing, shinyCharm: event.target.checked })} />
-        {t('profiles.shinyCharm')}
-      </label>
+      <Check6 label={t('profiles.shinyCharm')} value={editing.shinyCharm} change={shinyCharm => setEditing({ ...editing, shinyCharm })} />
       <p className="text-xs text-zinc-400">TSV <output className="ml-1 font-mono text-amber-300">
         {computeTsvTrv(editing.tid, editing.sid).tsv}</output></p>
       <div className="flex gap-2">
@@ -86,19 +84,23 @@ export function Profiles6Page({ store, updateStore }: {
         <button type="button" className={buttonClass} onClick={() => setEditing(null)}>{t('app.cancel')}</button>
       </div>
     </form>}
-    <ul className="profile-list space-y-2">
+    <div className="profile-list space-y-3"><ul className="space-y-2">
       {store.profiles.map(profile => <li key={profile.id} className="flex gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-2">
         <button type="button" aria-pressed={profile.id === store.activeProfileId}
           onClick={() => updateStore({ ...store, activeProfileId: profile.id })}
           className="min-w-0 flex-1 rounded-xl px-2 py-1 text-left hover:bg-zinc-800 aria-pressed:bg-amber-500/10">
-          <span className="block truncate text-sm font-semibold">{profile.name}</span>
-          <span className="block truncate text-xs text-zinc-400">{t(`gen6.gameNames.${profile.gameVersion}`)} · TSV {computeTsvTrv(profile.tid, profile.sid).tsv}</span>
+          <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <span className={`shrink-0 rounded px-1 py-0.5 text-[10px] ${getVersionBadgeClass(profile.gameVersion)}`}>{profile.gameVersion}</span>
+            <span className="truncate">{profile.name}</span>
+            {profile.id === store.activeProfileId && <span className="shrink-0 text-[11px] text-amber-300">{t('gen6.currentProfile')}</span>}
+          </span>
+          <span className="block truncate text-xs text-zinc-400">{t(`gen6.gameNames.${profile.gameVersion}`)} · TSV {String(computeTsvTrv(profile.tid, profile.sid).tsv).padStart(4, '0')} · TRV {computeTsvTrv(profile.tid, profile.sid).trv.toString(16).toUpperCase()}</span>
         </button>
         <button type="button" className={buttonClass} aria-label={`${t('app.edit')} ${profile.name}`}
           onClick={() => setEditing({ ...profile })}>{t('app.edit')}</button>
       </li>)}
     </ul>
-    <div className={`profile-settings ${cardClass}`}>
+    <div className={cardClass}>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={buttonClass} onClick={exportFile}><Download size={15} aria-hidden="true" />{t('profiles.exportJson')}</button>
         <button type="button" className={buttonClass} onClick={() => fileInput.current?.click()}><Upload size={15} aria-hidden="true" />{t('profiles.importJson')}</button>
@@ -111,5 +113,22 @@ export function Profiles6Page({ store, updateStore }: {
       {notice && <p role="status" className="text-sm text-emerald-300">{notice}</p>}
       {importError && <p role="alert" className="text-sm text-rose-300">{t('gen6.profileImportError')}</p>}
     </div>
+    </div>
+    <section className={`profile-settings ${cardClass}`}>
+      <h2 className="text-sm font-bold text-zinc-100">{t('profiles.settings')}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-zinc-300">{t('profiles.language')}</span>
+        <div className="flex gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-1">
+          {(['it', 'en'] as const).map(code => (
+            <button key={code} type="button" aria-pressed={lang === code} onClick={() => setLang(code)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase transition ${lang === code
+                ? 'border border-amber-500/50 bg-amber-500/20 text-amber-300'
+                : 'text-zinc-400 hover:text-zinc-200'}`}>
+              {code}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
   </div>;
 }

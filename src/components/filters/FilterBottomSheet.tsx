@@ -8,7 +8,7 @@ import { NumberStepper } from '../common/NumberStepper';
 import { NumericInput } from '../common/NumericInput';
 import { IvCalculator, type EncounterStats, type IvPersonalData } from './IvCalculator';
 
-export type FilterSheetMode = 'stationary' | 'wild' | 'egg' | 'event';
+export type FilterSheetMode = 'stationary' | 'wild' | 'egg' | 'egg6' | 'event';
 
 interface FilterBottomSheetProps {
   open: boolean;
@@ -20,6 +20,8 @@ interface FilterBottomSheetProps {
   showSafeBlink?: boolean;
   npcCount?: number;
   allowExactStats?: boolean;
+  allowSquareShiny?: boolean;
+  showSpecialOnly?: boolean;
   encounter?: EncounterStats;
   personalData?: IvPersonalData;
 }
@@ -66,6 +68,8 @@ export function FilterBottomSheet({
   showSafeBlink = false,
   npcCount = 0,
   allowExactStats = true,
+  allowSquareShiny = true,
+  showSpecialOnly = true,
   encounter,
   personalData,
 }: FilterBottomSheetProps) {
@@ -176,7 +180,7 @@ export function FilterBottomSheet({
           {/* Shiny Segmented */}
           <div className="space-y-1.5">
             <span className="block text-xs font-medium text-zinc-400">Shiny</span>
-            <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-900 border border-zinc-800">
+            <div className={`grid ${allowSquareShiny ? 'grid-cols-3' : 'grid-cols-2'} gap-1 p-1 rounded-xl bg-zinc-900 border border-zinc-800`}>
               <button
                 type="button"
                 onClick={() => onChange({ ...filter, shinyOnly: false, squareShinyOnly: false })}
@@ -194,14 +198,14 @@ export function FilterBottomSheet({
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{i18n.t('filters.shinyStar')}</span>
               </button>
-              <button
+              {allowSquareShiny && <button
                 type="button"
                 onClick={() => onChange({ ...filter, shinyOnly: true, squareShinyOnly: true })}
                 aria-pressed={filter.shinyOnly && filter.squareShinyOnly}
                 className="choice-button h-9 rounded-lg text-xs font-semibold"
               >
                 {i18n.t('filters.shinySquare')}
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -451,7 +455,7 @@ export function FilterBottomSheet({
                   max={100}
                   onChange={(level) => onChange({ ...filter, level })}
                 />
-                <label className="flex items-center justify-between px-3 rounded-xl bg-zinc-900 border border-zinc-800 mt-5 h-11">
+                {showSpecialOnly && <label className="flex items-center justify-between px-3 rounded-xl bg-zinc-900 border border-zinc-800 mt-5 h-11">
                   <span className="text-[11px] font-medium text-zinc-200">
                     {i18n.t('filters.specialOnly')}
                   </span>
@@ -461,15 +465,15 @@ export function FilterBottomSheet({
                     onChange={(e) => onChange({ ...filter, specialOnly: e.target.checked })}
                     className="w-4 h-4 accent-amber-500"
                   />
-                </label>
+                </label>}
               </div>
             </div>
           )}
 
           {/* Egg-specific Filters */}
-          {mode === 'egg' && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+          {(mode === 'egg' || mode === 'egg6') && (
+            <div className={mode === 'egg' ? 'grid grid-cols-2 gap-2' : undefined}>
+              {mode === 'egg' && <div className="space-y-1">
                 <span className="block text-xs font-medium text-zinc-400">
                   {i18n.t('filters.ball')}
                 </span>
@@ -490,7 +494,7 @@ export function FilterBottomSheet({
                     </button>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               <div className="space-y-1">
                 <span className="block text-xs font-medium text-zinc-400">

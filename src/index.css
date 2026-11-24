@@ -188,3 +188,20 @@ input[type='number'] {
     margin-inline: auto max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem));
   }
 }
+
+.gen6-seed-view { margin-top: .5rem; }
+@media (min-width: 64rem) {
+  .gen6-seed-view:has(.search-workspace) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-top: 0;
+  }
+
+  .gen6-seed-view > .search-workspace { flex: 1; min-height: 0; height: auto; }
+  .gen6-simple-results { flex: 1; min-height: 0; }
+}
+
+@media (max-width: 63.999rem) {
+  .gen6-virtual-results { max-height: max(12rem, calc(100dvh - 17rem)); }
+}

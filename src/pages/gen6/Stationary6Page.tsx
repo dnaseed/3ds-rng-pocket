@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { countActiveFilters, FilterBottomSheet } from '../../components/filters/FilterBottomSheet';
+import { FrameIvValues, FrameShinyBadge, FrameSyncBadge } from '../../components/results/FrameValues';
+import { convertToTimeStr } from '../../engine/core/pokemonMath';
 import { SearchWorkspace } from '../../components/layout/SearchWorkspace';
 import { SearchActionBar } from '../../components/results/SearchActionBar';
 import { getPersonalEntry6 } from '../../data/personalTable6';
@@ -14,7 +16,8 @@ import { computeTsvTrv } from '../../services/profileStorage';
 import { useApp } from '../../store/AppContext';
 import { useSearchWorker } from '../../workers/useSearchWorker';
 import { cardClass, fieldClass, labelClass, NumberField } from './fields';
-import { Details6, Results6, rowButtonClass, type Results6Data } from './Results6';
+import { Check6 } from './ToolFields6';
+import { CopyResultValue, Details6, PokemonDetailCard6, Results6, rowButtonClass, StatValues6, type Results6Data } from './Results6';
 
 const personalData6 = { speciesCount: 721, getEntry: getPersonalEntry6 };
 const genderRatios = [
@@ -58,7 +61,7 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
   game: Stationary6Game;
   setTransporter: (enabled: boolean) => void;
 }) {
-  const { i18n, lang } = useApp();
+  const { i18n } = useApp();
   const { t } = i18n;
   const categories = useMemo(() => getStationary6Categories(game).filter(category => category.list.length), [game]);
   const [categoryIdx, setCategoryIdx] = useState(0);
@@ -75,9 +78,9 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [result, setResult] = useState<Results6Data<Stationary6Row> | null>(null);
   const [selected, setSelected] = useState<Stationary6Row | null>(null);
+  const [showStats, setShowStats] = useState(false);
   const [validationError, setValidationError] = useState('');
   const worker = useSearchWorker();
-  const statNames = [lang === 'it' ? 'PS' : 'HP', 'Atk', 'Def', 'SpA', 'SpD', lang === 'it' ? 'Vel' : 'Spe'];
   const level = preset.level || options.level;
   const statFilter = preset.species > 0;
   const effectiveFilter = {
@@ -130,6 +133,7 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
       setResult({ ...rows, summary: [
         t(`gen6.gameNames.${game}`), presetName(preset), session.initialSeedHex,
         `#${minFrame}–#${maxFrame}`, `${t('gen6.delay')} ${considerDelay ? options.delay : 0}`,
+        useTimeline && compatible ? 'TinyMT Timeline' : '',
         activeFilters ? `${t('search.filters')} ${activeFilters}` : '',
       ].filter(Boolean).join(' · ') });
     } catch {
@@ -138,19 +142,50 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
   }
 
   return <>
-    <SearchWorkspace collapsed={false}
+    <SearchWorkspace collapsible={!!result}
       actions={<SearchActionBar activeFilters={activeFilters} onOpenFilters={() => setFiltersOpen(true)}
         isRunning={worker.isRunning} progress={worker.progress} onSearch={() => void search()} onAbort={worker.abort} />}
       results={<Results6 result={result} error={validationError ? t(validationError) : worker.error ? t('misc.searchError') : null}
-        renderRow={row => <button type="button" className={rowButtonClass} onClick={() => setSelected(row)}>
-          <span className="flex flex-wrap items-center gap-x-2 text-sm">
-            <span className="font-mono font-bold text-amber-300">#{row.frame}</span>
-            {row.species > 0 && <span className="font-semibold">{i18n.getSpeciesName(row.species)}</span>}
-            <span className="text-xs text-zinc-300">{i18n.getNatureName(row.nature)}</span>
-            {row.shiny && <span className="text-xs text-amber-300">{row.squareShiny ? '■' : '★'}</span>}
-          </span>
-          <span className="block font-mono text-xs text-zinc-400">IV {row.ivs.join(' / ')} · PID {toHex32(row.pid)}</span>
-        </button>} />}>
+        headerExtra={preset.species > 0 && (
+          <button type="button" aria-pressed={showStats} onClick={() => setShowStats(value => !value)}
+            className={`min-h-10 rounded-xl border px-2.5 text-xs font-semibold transition ${showStats
+              ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
+              : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500'}`}>
+            {t('search.showStats')}
+          </button>
+        )}
+        renderRow={row => {
+          const abLabel = row.ability === 3 ? 'HA' : row.ability > 0 ? String(row.ability) : '-';
+          const genderLabel = ['-', '♂', '♀'][row.gender] ?? '-';
+          const genderTone = row.gender === 1 ? 'text-sky-400' : row.gender === 2 ? 'text-pink-400' : 'text-zinc-400';
+          return <button type="button" className={rowButtonClass} onClick={() => setSelected(row)}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                <span className="font-mono font-bold text-amber-300">#{row.frame}</span>
+                {row.species > 0 && <span className="font-semibold text-zinc-100">{i18n.getSpeciesName(row.species)}</span>}
+                <span className="text-xs text-zinc-200">{i18n.getNatureName(row.nature)}</span>
+                {row.synchronize && <FrameSyncBadge synced />}
+                {row.shiny && <FrameShinyBadge square={row.squareShiny} />}
+              </span>
+              <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-zinc-300">
+                <span>Ab {abLabel}</span>
+                <span className={`font-bold ${genderTone}`}>{genderLabel}</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {showStats && row.species > 0 && row.level > 0
+                ? <StatValues6 ivs={row.ivs} nature={row.nature} level={row.level} species={row.species} forme={row.forme} />
+                : <FrameIvValues ivs={row.ivs} />}
+              <span className="shrink-0 text-[11px] font-medium text-zinc-400">
+                {t('search.hpShort')} {i18n.getHpTypeName(row.hiddenPower)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 tabular-nums">
+              <span>{convertToTimeStr(row.elapsedFrames / 60)} ({row.shift >= 0 ? '+' : ''}{row.shift}F)</span>
+              <span>Delay +{row.delay}F</span>
+            </div>
+          </button>;
+        }} />}>
       <section className={cardClass}>
         <h1 className="text-base font-bold">{t('nav.stationary')}</h1>
         <label className={labelClass}><span>{t('profiles.version')}</span>
@@ -195,8 +230,8 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
       </section>
       <details className={cardClass}>
         <summary className="cursor-pointer text-sm font-semibold">{t('gen6.advanced')}</summary>
-        {compatible && <Check label="TinyMT Timeline" checked={useTimeline} onChange={setUseTimeline} />}
-        <Check label={t('search.considerDelay')} checked={considerDelay} onChange={setConsiderDelay} />
+        {compatible && <Check6 label="TinyMT Timeline" value={useTimeline} change={setUseTimeline} />}
+        <Check6 label={t('search.considerDelay')} value={considerDelay} change={setConsiderDelay} />
         {considerDelay && <NumberField label={t('gen6.delay')} value={options.delay} max={4000}
           onChange={delay => setOptions({ ...options, delay })} />}
         <NumberField label={t('search.targetFrame')} value={session.targetFrame} onChange={targetFrame => updateSession({ targetFrame })} />
@@ -209,11 +244,11 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
               {Array.from({ length: 25 }, (_, nature) => <option key={nature} value={nature}>{i18n.getNatureName(nature)}</option>)}
             </select>
           </label>
-          {!options.alwaysSync && <Check label={t('gen6.assumeSynced')} checked={options.assumeSynced}
-            onChange={assumeSynced => setOptions({ ...options, assumeSynced })} />}
+          {!options.alwaysSync && <Check6 label={t('gen6.assumeSynced')} value={options.assumeSynced}
+            change={assumeSynced => setOptions({ ...options, assumeSynced })} />}
         </>}
-        {preset.bank && <Check label={t('gen6.forceShiny')} checked={options.forceShiny}
-          onChange={forceShiny => setOptions({ ...options, forceShiny })} />}
+        {preset.bank && <Check6 label={t('gen6.forceShiny')} value={options.forceShiny}
+          change={forceShiny => setOptions({ ...options, forceShiny })} />}
         {preset.conceptual && <>
           <label className={labelClass}><span>{t('gen6.genderRatio')}</span>
             <select aria-label={t('gen6.genderRatio')} className={fieldClass} value={options.genderRatio}
@@ -227,11 +262,11 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
               <option value={0}>—</option><option value={1}>1</option><option value={2}>2</option><option value={3}>HA</option>
             </select>
           </label>
-          {!preset.bank && <Check label={t('gen6.alwaysSync')} checked={options.alwaysSync}
-            onChange={alwaysSync => setOptions({ ...options, alwaysSync })} />}
-          <Check label={t('gen6.threeIv')} checked={options.iv3} onChange={iv3 => setOptions({ ...options, iv3 })} />
-          {!preset.bank && <Check label={t('gen6.shinyLocked')} checked={options.shinyLocked}
-            onChange={shinyLocked => setOptions({ ...options, shinyLocked })} />}
+          {!preset.bank && <Check6 label={t('gen6.alwaysSync')} value={options.alwaysSync}
+            change={alwaysSync => setOptions({ ...options, alwaysSync })} />}
+          <Check6 label={t('gen6.threeIv')} value={options.iv3} change={iv3 => setOptions({ ...options, iv3 })} />
+          {!preset.bank && <Check6 label={t('gen6.shinyLocked')} value={options.shinyLocked}
+            change={shinyLocked => setOptions({ ...options, shinyLocked })} />}
         </>}
       </details>
     </SearchWorkspace>
@@ -240,33 +275,35 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
       encounter={{ species: preset.species, forme: preset.forme, level }} />
     <Details6 open={selected !== null} title={`${t('gen6.details')} #${selected?.frame ?? ''}`} onClose={() => setSelected(null)}>
       {selected && <>
-        <p className="text-sm text-zinc-300">
-          {selected.species ? i18n.getSpeciesName(selected.species) : t('gen6.manualPreset')} · Lv. {selected.level} · {i18n.getNatureName(selected.nature)}
-        </p>
-        <dl className="grid grid-cols-6 gap-1 rounded-xl bg-zinc-950 p-2 text-center">
-          {selected.ivs.map((iv, index) => <div key={index}>
-            <dt className="text-[11px] text-zinc-400">{statNames[index]}</dt>
-            <dd className="font-mono text-sm text-amber-300">{iv}</dd>
-          </div>)}
-        </dl>
-        <dl className="grid grid-cols-2 gap-2 break-words text-sm">
-          <dt>PID</dt><dd className="font-mono">{toHex32(selected.pid)}</dd>
-          <dt>EC</dt><dd className="font-mono">{toHex32(selected.ec)}</dd>
-          <dt>PSV / PRV</dt><dd className="font-mono">{selected.psv} / {selected.prv.toString(16).toUpperCase()}</dd>
-          <dt>{t('filters.ability')}</dt><dd>{selected.ability === 3 ? 'HA' : selected.ability}</dd>
-          <dt>{t('filters.gender')}</dt><dd>{['—', '♂', '♀'][selected.gender]}</dd>
-          <dt>{t('gen6.delay')}</dt><dd>{selected.delay}F</dd>
-          <dt>{t('misc.randomNumber')}</dt><dd className="font-mono">{toHex32(selected.rand)}</dd>
-          <dt>{t('gen6.mtState')}</dt><dd className="font-mono">{toHex32(selected.state)}</dd>
-        </dl>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+          <span className="font-semibold">
+            {selected.species ? i18n.getSpeciesName(selected.species) : t('gen6.manualPreset')} · Lv. {selected.level}
+            {selected.forme > 0 && ` · ${t('event.forme')} ${selected.forme}`}
+          </span>
+          {selected.shiny && <FrameShinyBadge square={selected.squareShiny} />}
+        </div>
+        <PokemonDetailCard6
+          species={selected.species} forme={selected.forme} level={selected.level}
+          nature={selected.nature} synchronized={game !== 'VC' ? selected.synchronize : undefined}
+          ability={selected.ability} gender={selected.gender} hiddenPower={selected.hiddenPower}
+          ivs={selected.ivs} pid={selected.pid} ec={selected.ec} psv={selected.psv} prv={selected.prv}
+          extra={[
+            { label: t('gen6.delay'), value: `${selected.delay}F` },
+            ...(game === 'VC' ? [{ label: t('gen6.framesUsed'), value: `${selected.framesUsed}F` }] : []),
+            { label: t('gen6.elapsedTime'), value: `${convertToTimeStr(selected.elapsedFrames / 60)} (${selected.shift >= 0 ? '+' : ''}${selected.shift}F)`, wide: true },
+            { label: t('misc.randomNumber'), value: toHex32(selected.rand), wide: true, tone: 'amber' as const },
+            { label: t('gen6.mtState'), value: toHex32(selected.state), wide: true, tone: 'emerald' as const },
+          ]}
+        />
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button type="button"
+            className="h-10 rounded-xl border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 active:scale-95 transition"
+            onClick={() => { updateSession({ targetFrame: selected.frame }); setSelected(null); }}>
+            {t('search.setAsTarget')}
+          </button>
+          <CopyResultValue value={toHex32(selected.state)} label={t('gen6.copyState')} />
+        </div>
       </>}
     </Details6>
   </>;
-}
-
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <label className="flex min-h-9 items-center gap-2 text-sm">
-    <input type="checkbox" className="size-4 accent-amber-400" checked={checked} onChange={event => onChange(event.target.checked)} />
-    {label}
-  </label>;
 }

@@ -6,9 +6,10 @@ import { useApp } from '../../store/AppContext';
 interface RngLegendModalProps {
   open: boolean;
   onClose: () => void;
+  gen6?: boolean;
 }
 
-export function RngLegendModal({ open, onClose }: RngLegendModalProps) {
+export function RngLegendModal({ open, onClose, gen6 }: RngLegendModalProps) {
   const { i18n } = useApp();
 
   const dialogRef = useDialogFocus(open);
@@ -52,6 +53,11 @@ export function RngLegendModal({ open, onClose }: RngLegendModalProps) {
           </button>
         </div>
 
+        {gen6 ? <div className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-3 text-xs leading-relaxed">
+          <p>{i18n.t('gen6.legendBadges')}</p>
+          <p>{i18n.t('gen6.legendIv')}</p>
+          <p>{i18n.t('gen6.legendState')}</p>
+        </div> : <>
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-3 space-y-2.5 text-xs">
           <div className="flex items-start gap-2.5">
             <span className="shrink-0 px-2 py-0.5 rounded-md border bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[11px] font-semibold">
@@ -95,6 +101,7 @@ export function RngLegendModal({ open, onClose }: RngLegendModalProps) {
           <div className="text-xs font-bold text-amber-300">{i18n.t('search.legendFlowTitle')}</div>
           <p className="text-xs text-zinc-300 leading-relaxed">{i18n.t('search.legendFlow')}</p>
         </div>
+        </>}
       </div>
     </div>
   );

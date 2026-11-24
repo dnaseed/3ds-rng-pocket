@@ -46,7 +46,7 @@ function loadSettings(): PersistedSettings {
     if (raw) {
       const p = JSON.parse(raw) as Partial<PersistedSettings>;
       return {
-        lang: p.lang === 'en' ? 'en' : 'it',
+        lang: p.lang === 'it' ? 'it' : 'en',
         clockStyle: p.clockStyle === 'sprite' ? 'sprite' : 'svg',
         apiBaseUrl: typeof p.apiBaseUrl === 'string' && p.apiBaseUrl ? p.apiBaseUrl : DEFAULT_SEED_API_BASE,
         initialSeedHex:
@@ -61,7 +61,7 @@ function loadSettings(): PersistedSettings {
     // ignore
   }
   return {
-    lang: 'it',
+    lang: 'en',
     clockStyle: 'svg',
     apiBaseUrl: DEFAULT_SEED_API_BASE,
     initialSeedHex: '00000000',

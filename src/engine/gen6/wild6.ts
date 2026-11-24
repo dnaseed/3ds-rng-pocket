@@ -36,7 +36,9 @@ export function searchWild6(q: Wild6Request, progress?: (percent: number)=>void)
     (q.safariSlots===2 ? [50,50] : [34,33,33]) : normalSlots6;
   const type = q.lead==='static' ? 12 : q.lead==='magnet' ? 8 : -1;
   const typeSlots = slots.map((s,i)=>getPersonalEntry6(s.species & 2047,s.species>>>11).types.includes(type)?i+1:0).filter(Boolean);
-  const clock = q.timeline && new TinyClock6(q.timeline.state,q.timeline.calls,q.timeline.calls[0]!.frame-2);
+  // The desktop's full Horde search resolves TinyMT once before iterating MT frames.
+  const horde = isHorde && q.timeline ? horde6(q.timeline.state, q.timeline.party, oras) : undefined;
+  const clock = q.timeline && !isHorde && new TinyClock6(q.timeline.state,q.timeline.calls,q.timeline.calls[0]!.frame-2);
   let source: TinyClock6 | undefined;
   return collectFrames6<WildRow6>(q,(pool,frame,rand)=>{
     let tiny: TinyClock6 | undefined;
@@ -52,12 +54,10 @@ export function searchWild6(q: Wild6Request, progress?: (percent: number)=>void)
     let dex: ReturnType<typeof dexNav6> = null;
     let haSlot=q.haSlot, forced=q.forceShiny, potential=q.potential;
     let extraDelay=0;
-    let horde: ReturnType<typeof horde6> | undefined;
-    if (tiny && cal) {
-      if (isHorde) {
-        horde=horde6(tiny.rng.getState(),cal.party,oras);
-        lead=horde.lead; slot=horde.slot; haSlot=horde.ha;
-      } else if (isNav) {
+    if (horde) {
+      lead=horde.lead; slot=horde.slot; haSlot=horde.ha;
+    } else if (tiny && cal) {
+      if (isNav) {
         dex=dexNav6(tiny.rng.getState(),q.dex);
         if (!dex) return null;
         lead=dex.lead; slot=dex.slot+1; potential=dex.potential; forced=dex.forcedShiny; flute=dex.flute; item=dex.item;

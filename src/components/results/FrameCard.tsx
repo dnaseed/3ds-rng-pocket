@@ -1,3 +1,4 @@
+import { FrameIvValues } from './FrameValues';
 import { Sparkles } from 'lucide-react';
 import { getFormeEntry } from '../../data/personalTable';
 import { convertToTimeStr, getStats } from '../../engine/core/pokemonMath';
@@ -166,20 +167,7 @@ export function FrameCard({
                       {st}
                     </span>
                   ))
-                : r.ivs.map((iv, idx) => (
-                    <span
-                      key={idx}
-                      className={`inline-flex items-center justify-center min-w-6 px-1 py-0.5 rounded ${
-                        iv === 31
-                          ? 'bg-emerald-500/15 text-emerald-300 font-bold'
-                          : iv === 0
-                            ? 'bg-amber-500/15 text-amber-300 font-bold'
-                            : 'bg-zinc-950 text-zinc-300'
-                      }`}
-                    >
-                      {String(iv).padStart(2, '0')}
-                    </span>
-                  ))}
+                : <FrameIvValues ivs={r.ivs} />}
             </div>
             <span className="text-[11px] font-medium text-zinc-300 shrink-0">
               {i18n.t('search.hpShort')} {hpText}

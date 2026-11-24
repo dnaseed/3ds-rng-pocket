@@ -1,4 +1,4 @@
-import { NumericInput } from '../../components/common/NumericInput';
+import { NumberStepper } from '../../components/common/NumberStepper';
 import { MAX_FRAME } from '../../engine/core/pokemonMath';
 
 export const cardClass = 'rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 space-y-3';
@@ -14,9 +14,5 @@ export function NumberField({ label, value, onChange, min = 0, max = MAX_FRAME }
   min?: number;
   max?: number;
 }) {
-  return <label className={labelClass}>
-    <span>{label}</span>
-    <NumericInput value={value} onChange={onChange} min={min} max={max} ariaLabel={label}
-      className={`${fieldClass} font-mono tabular-nums`} />
-  </label>;
+  return <NumberStepper {...{ label, value, onChange, min, max }} />;
 }

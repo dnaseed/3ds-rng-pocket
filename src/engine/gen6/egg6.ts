@@ -1,3 +1,5 @@
+import { checkRngFilter } from '../core/filters';
+import type { RngFilterOptions } from '../core/types';
 import { MT19937 } from '../rng/mt19937';
 import { getGenderRatio, getPSV, getPRV } from '../core/pokemonMath';
 import { getRandomAbility } from '../gen7/egg7';
@@ -8,7 +10,7 @@ export interface Egg6Options {
   male: number[]; female: number[]; maleItem: number; femaleItem: number; ability: number; ratio: number;
   nido: boolean; masuda: boolean; charm: boolean; accept: boolean; tsv: number; trv: number; otherTSVs:number[];
 }
-export interface Egg6Request extends FrameRange6, Egg6Options { delay: number }
+export interface Egg6Request extends FrameRange6, Egg6Options { delay: number; filter?: RngFilterOptions }
 export type EggKey6 = [number,number];
 export function eggFromKey6(q: Egg6Options, key: EggKey6, mainPID?: number) {
   const rng=new MT19937(key);
@@ -48,6 +50,12 @@ export function searchEgg6(q:Egg6Request,progress?:(p:number)=>void) {
   return collectFrames6<EggRow6>(q,(pool,frame,rand)=>{
     pool.begin(q.delay+1);
     const main=q.accept&&!q.charm&&!q.masuda?pool.next():undefined;
-    return {...eggFromKey6(q,[pool.next(),pool.next()],main),frame,rand,state:pool.state};
+    const egg = eggFromKey6(q, [pool.next(), pool.next()], main);
+    if (q.filter && !q.filter.skip) {
+      const parent = egg.everstone === null ? 0 : egg.everstone ? 1 : 2;
+      if (q.filter.natureInheritance && q.filter.natureInheritance !== parent) return null;
+      if (!checkRngFilter(q.filter, { ...egg, squareShiny: egg.square })) return null;
+    }
+    return { ...egg, frame, rand, state: pool.state };
   },progress);
 }

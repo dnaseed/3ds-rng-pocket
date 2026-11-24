@@ -74,7 +74,10 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
   const pidRolls = request.shinyCharm && !shinyLocked && !alwaysSync ? 3 : 1;
   const nature = preset.nature < 25 ? preset.nature : traits.syncable ? syncNature : undefined;
   const calibration = request.timeline;
-  const spans = calibration && timeline6({ ...calibration, maxFrame, split: true });
+  if (calibration && maxFrame < calibration.calls[0]!.frame + 2) return;
+  const spans = calibration && timeline6({
+    ...calibration, maxFrame, split: true, delay: calibration.split ? calibration.delay : 0,
+  });
   let span = spans?.next();
   const genderRatio = manual?.genderRatio ?? (preset.species === 0 ? 0x7f : traits.genderRatio);
   const gender = getGenderRatio(genderRatio);

@@ -1,3 +1,5 @@
+import { checkRngFilter } from '../core/filters';
+import type { RngFilterOptions } from '../core/types';
 import { parseWonderCardPayload, type ParsedWc7 } from '../gen7/wc7Parser';
 import { getPersonalEntry6 } from '../../data/personalTable6';
 import { getGenderRatio, getHiddenPowerValue, getPSV, getPRV, isRandomGender } from '../core/pokemonMath';
@@ -12,7 +14,7 @@ export function parseWc6(name: string, bytes: Uint8Array) {
   if (payload[0xa3]!>3 || payload[0xa2]!>4 || payload[0xa1]!>3 || (payload[0xa0]!==255 && payload[0xa0]!>=25)) return null;
   return parseWonderCardPayload(payload,721);
 }
-export interface Event6Request extends FrameRange6 { card: WonderCard6; oras: boolean; delay: number; trainerTSV: number }
+export interface Event6Request extends FrameRange6 { filter?: RngFilterOptions; card: WonderCard6; oras: boolean; delay: number; trainerTSV: number }
 export interface EventRow6 extends RngResultBase { frame: number; rand: number; state: number }
 function generate(pool: FramePool6, q: Event6Request): RngResultBase {
   const c=q.card, tsv=c.yourId?q.trainerTSV:(c.tid^c.sid)>>>4;
@@ -36,9 +38,12 @@ function generate(pool: FramePool6, q: Event6Request): RngResultBase {
 }
 export function searchEvent6(q: Event6Request, progress?: (p:number)=>void) {
   if(q.card.ivsCount>q.card.ivs.filter(v=>v===-1).length) throw new RangeError('IV locks exceed six stats');
+  const filter = q.filter && !q.filter.skip ? { ...q.filter, squareShinyOnly: false } : undefined;
   return collectFrames6<EventRow6>(q,(pool,frame,rand)=>{
     pool.begin(q.delay+1);
     if(q.oras) generate(pool,q);
-    return {...generate(pool,q),frame,rand,state:pool.state};
+    const pokemon = generate(pool, q);
+    if (filter && !checkRngFilter(filter, pokemon)) return null;
+    return { ...pokemon, frame, rand, state: pool.state };
   },progress);
 }

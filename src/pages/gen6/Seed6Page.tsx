@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { HexSeedInput } from '../../components/common/HexSeedInput';
+import { NumberStepper } from '../../components/common/NumberStepper';
 import { ArrowRight, Timer } from 'lucide-react';
 import { parseHex32, toHex32 } from '../../engine/math/uint';
 import type { Session6 } from '../../services/gen6Storage';
 import { useApp } from '../../store/AppContext';
-import { buttonClass, cardClass, fieldClass, labelClass, NumberField, primaryClass } from './fields';
+import { buttonClass, cardClass, primaryClass } from './fields';
 
 export function Seed6Page({ session, updateSession, onStationary }: {
   session: Session6;
@@ -11,7 +13,9 @@ export function Seed6Page({ session, updateSession, onStationary }: {
   onStationary: () => void;
 }) {
   const { i18n, lang } = useApp();
-  const [draft, setDraft] = useState(session.initialSeedHex);
+  const [edit, setEdit] = useState({ applied: session.initialSeedHex, value: session.initialSeedHex });
+  const draft = edit.applied === session.initialSeedHex ? edit.value : session.initialSeedHex;
+  const setDraft = (value: string) => setEdit({ applied: session.initialSeedHex, value });
   const [status, setStatus] = useState('');
   const seed = parseHex32(draft);
   const seconds = ((session.targetFrame - session.startFrame) / 60).toLocaleString(lang, { maximumFractionDigits: 3 });
@@ -27,13 +31,8 @@ export function Seed6Page({ session, updateSession, onStationary }: {
         setDraft(canonical);
         setStatus(i18n.t('gen6.seedApplied'));
       }}>
-        <label className={labelClass}>
-          <span>{i18n.t('gen6.mtSeed')}</span>
-          <input className={`${fieldClass} font-mono tracking-widest text-amber-300`}
-            autoCapitalize="characters" spellCheck={false} autoComplete="off" maxLength={10}
-            value={draft} aria-describedby="gen6-seed-status"
-            onChange={event => { setDraft(event.target.value.toUpperCase()); setStatus(''); }} />
-        </label>
+        <HexSeedInput label={i18n.t('gen6.mtSeed')} value={draft}
+          onDraftChange={value => { setDraft(value); setStatus(''); }} />
         <div className="flex flex-wrap gap-2">
           <button className={primaryClass} type="submit" disabled={seed === null}>{i18n.t('app.apply')}</button>
           <button className={buttonClass} type="button" onClick={onStationary}>
@@ -48,8 +47,8 @@ export function Seed6Page({ session, updateSession, onStationary }: {
     <section className={cardClass}>
       <h2 className="flex items-center gap-2 text-sm font-semibold"><Timer size={16} className="text-amber-400" aria-hidden="true" />{i18n.t('gen6.frameTime')}</h2>
       <div className="grid grid-cols-2 gap-2">
-        <NumberField label={i18n.t('search.startingFrame')} value={session.startFrame} onChange={startFrame => updateSession({ startFrame })} />
-        <NumberField label={i18n.t('search.targetFrame')} value={session.targetFrame} onChange={targetFrame => updateSession({ targetFrame })} />
+        <NumberStepper label={i18n.t('search.startingFrame')} value={session.startFrame} onChange={startFrame => updateSession({ startFrame })} />
+        <NumberStepper label={i18n.t('search.targetFrame')} value={session.targetFrame} onChange={targetFrame => updateSession({ targetFrame })} />
       </div>
       <p aria-live="polite" className="font-mono text-lg text-amber-300">{seconds} s</p>
       <p className="text-xs text-zinc-400">{i18n.t('gen6.frameTimeHelp')}</p>

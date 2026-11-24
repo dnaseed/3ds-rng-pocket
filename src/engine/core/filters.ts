@@ -28,9 +28,12 @@ export function createDefaultRngFilter(): RngFilterOptions {
   };
 }
 
+type FilterablePokemon = Pick<RngResultBase, 'nature' | 'gender' | 'ability' | 'shiny' | 'squareShiny'> &
+  Partial<Pick<RngResultBase, 'hiddenPower' | 'level' | 'stats'>> & { ivs: readonly number[]; kind?: undefined };
+
 export function checkRngFilter(
   filter: RngFilterOptions,
-  result: AnyResult7 | (RngResultBase & { kind: 'stationary' }),
+  result: AnyResult7 | (RngResultBase & { kind: 'stationary' }) | FilterablePokemon,
   isPokemon = true,
 ): boolean {
   if (!isPokemon) return false;
@@ -39,7 +42,7 @@ export function checkRngFilter(
   result.hiddenPower = hp;
 
   if (filter.skip) {
-    if (filter.byStats && filter.baseStats) {
+    if (filter.byStats && filter.baseStats && result.level !== undefined) {
       result.stats = getStats(result.ivs, result.nature, result.level, filter.baseStats);
     }
     return true;
@@ -60,7 +63,7 @@ export function checkRngFilter(
     if (filter.squareShinyOnly && !result.squareShiny) return false;
   }
 
-  if (filter.byStats && filter.baseStats && filter.targetStats) {
+  if (filter.byStats && filter.baseStats && filter.targetStats && result.level !== undefined) {
     result.stats = getStats(result.ivs, result.nature, result.level, filter.baseStats);
     for (let i = 0; i < 6; i++) {
       const target = filter.targetStats[i] ?? 0;

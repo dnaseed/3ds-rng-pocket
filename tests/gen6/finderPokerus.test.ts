@@ -21,9 +21,23 @@ it('enforces the original single-capture IV and seed-span limits',()=>{
   expect(validFinder6({...query,seedMin:0,seedMax:0x10000001})).toBe(false);
   for (const spread of [0,2,3]) expect(validFinder6({...query,first:{...first,low:[31-spread,...firstIVs.slice(1)]}})).toBe(spread<=2);
 });
+
+it('uses the first matching IV spread before checking nature, as in v1.0.6', () => {
+  const window = { low: [14, 25, 10, 5, 10, 9], high: [16, 26, 12, 6, 11, 9], min: 637, max: 660 };
+  const request = { ...query, first: window, seedMin: seed, seedMax: seed };
+  expect(searchFinder6({ ...request, nature: 19 }).rows).toEqual([]);
+  expect(searchFinder6({ ...request, nature: 15 }).rows.map(r => r.frame)).toEqual([637]);
+  expect(searchFinder6({ ...request, first: { ...window, min: 638 }, nature: 19 }).rows.map(r => r.frame)).toEqual([655]);
+});
+
 it('matches infection frames and strains over the first 150000 MT outputs',()=>{
   const rows=searchPokerus6({seed,minFrame:0,maxFrame:149999,delay:0}).rows;
   expect(rows.map(r=>[r.frame,r.rand&65535,r.strain])).toEqual([
     [21203,49152,3],[45241,16384,5],[77687,16384,3],[91380,16384,3],[126453,32768,6],[126593,49152,5],
   ]);
+});
+
+it('matches the original Pokérus strain after discarding byte E0', () => {
+  const rows = searchPokerus6({ seed, minFrame: 692993, maxFrame: 692995, delay: 0 }).rows;
+  expect(rows.map(r => [r.frame, r.rand, r.strain])).toEqual([[692994, 0xd4cac000, 7]]);
 });

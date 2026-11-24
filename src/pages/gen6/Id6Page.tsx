@@ -9,7 +9,8 @@ import type { Session6 } from '../../services/gen6Storage';
 import { useApp } from '../../store/AppContext';
 import { useSearchWorker } from '../../workers/useSearchWorker';
 import { cardClass, fieldClass, labelClass, NumberField } from './fields';
-import { Details6, Results6, rowButtonClass, type Results6Data } from './Results6';
+import { Check6 } from './ToolFields6';
+import { CopyResultValue, Details6, Results6, rowButtonClass, type Results6Data } from './Results6';
 
 export function Id6Page({ scope, session, updateSession }: {
   scope: string;
@@ -27,6 +28,8 @@ export function Id6Page({ scope, session, updateSession }: {
   const [selected, setSelected] = useState<IdResult6 | null>(null);
   const [validationError, setValidationError] = useState('');
   const worker = useSearchWorker(scope);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [idText, tsvText, stateText].filter(value => value.trim()).length;
   const fieldTexts = [
     { label: t('id.idList'), value: idText, change: setIdText },
     { label: t('id.tsvList'), value: tsvText, change: setTsvText },
@@ -59,8 +62,8 @@ export function Id6Page({ scope, session, updateSession }: {
   }
 
   return <>
-    <SearchWorkspace collapsed={false}
-      actions={<SearchActionBar activeFilters={0} isRunning={worker.isRunning} progress={worker.progress}
+    <SearchWorkspace collapsible={!!result}
+      actions={<SearchActionBar activeFilters={activeFilters} onOpenFilters={() => setFiltersOpen(true)} isRunning={worker.isRunning} progress={worker.progress}
         onSearch={() => void search()} onAbort={worker.abort} />}
       results={<Results6 result={result} error={validationError ? t(validationError) : worker.error ? t('misc.searchError') : null}
         renderRow={row => <button type="button" className={rowButtonClass} onClick={() => setSelected(row)}>
@@ -97,8 +100,8 @@ export function Id6Page({ scope, session, updateSession }: {
             onChange={idEndFrame => updateSession({ idEndFrame })} />
         </div>
       </section>
-      <details className={cardClass}>
-        <summary className="cursor-pointer text-sm font-semibold">{t('gen6.idFilters')}</summary>
+    </SearchWorkspace>
+    <Details6 title={t('gen6.idFilters')} open={filtersOpen} onClose={() => setFiltersOpen(false)}>
         <label className={labelClass}><span>{t('id.filterType')}</span>
           <select aria-label={t('id.filterType')} className={fieldClass} value={idType} onChange={event => setIdType(Number(event.target.value) as 0 | 1 | 2)}>
             <option value={0}>{t('id.tid')}</option>
@@ -111,12 +114,8 @@ export function Id6Page({ scope, session, updateSession }: {
           <textarea className={`${fieldClass} py-2 font-mono`} rows={2} spellCheck={false} value={value}
             onChange={event => change(event.target.value)} />
         </label>)}
-        <label className="flex min-h-9 items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4 accent-amber-400" checked={regex} onChange={event => setRegex(event.target.checked)} />
-          {t('id.regex')}
-        </label>
-      </details>
-    </SearchWorkspace>
+        <Check6 label={t('id.regex')} value={regex} change={setRegex} />
+    </Details6>
     <Details6 open={selected !== null} title={`ID RNG · #${selected?.frame ?? ''}`} onClose={() => setSelected(null)}>
       {selected && <>
         <dl className="grid grid-cols-2 gap-2 font-mono text-sm">
@@ -126,6 +125,7 @@ export function Id6Page({ scope, session, updateSession }: {
         </dl>
         <p className="text-xs text-zinc-400">{t('gen6.tinyState')}</p>
         <p className="break-words font-mono text-sm text-amber-300">{formatEggSeedStr(selected.state).replaceAll(',', ', ')}</p>
+        <CopyResultValue value={formatEggSeedStr(selected.state)} label={t('gen6.copyState')} />
       </>}
     </Details6>
   </>;
