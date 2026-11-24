@@ -121,6 +121,36 @@ export function useSearchWorker(scope?: string) {
     [disposeWorker, spawnWorker],
   );
 
+  const searchWild6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'WILD6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'WILD6_DONE' }>['payload']>({ type: 'WILD6_SEARCH', payload }),
+    [dispatch],
+  );
+
+  const searchEvent6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'EVENT6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'EVENT6_DONE' }>['payload']>({ type: 'EVENT6_SEARCH', payload }),
+    [dispatch],
+  );
+
+  const searchEgg6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'EGG6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'EGG6_DONE' }>['payload']>({ type: 'EGG6_SEARCH', payload }),
+    [dispatch],
+  );
+
+  const searchPokerus6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'POKERUS6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'POKERUS6_DONE' }>['payload']>({ type: 'POKERUS6_SEARCH', payload }),
+    [dispatch],
+  );
+
+  const searchFinder6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'FINDER6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'FINDER6_DONE' }>['payload']>({ type: 'FINDER6_SEARCH', payload }),
+    [dispatch],
+  );
+
   const runMainSearch = useCallback(
     (payload: MainGen7SearchRequest) =>
       dispatch<MainSearchOutput>({ type: 'MAIN_SEARCH', payload }),
@@ -163,11 +193,23 @@ export function useSearchWorker(scope?: string) {
     [dispatch],
   );
 
+  const searchTimeline6 = useCallback(
+    (payload: Extract<WorkerCommand, { type: 'TIMELINE6_SEARCH' }>['payload']) =>
+      dispatch<Extract<CompletedSearch, { type: 'TIMELINE6_DONE' }>['payload']>({ type: 'TIMELINE6_SEARCH', payload }),
+    [dispatch],
+  );
+
   return {
+    searchTimeline6,
     isRunning,
     progress,
     error,
     abort,
+    searchFinder6,
+    searchPokerus6,
+    searchEgg6,
+    searchEvent6,
+    searchWild6,
     runMainSearch,
     runEggSearch,
     runIdSearch,

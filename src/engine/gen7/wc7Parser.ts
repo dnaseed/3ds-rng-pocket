@@ -28,6 +28,10 @@ const REORDER2 = [0, 1, 2, 4, 5, 3] as const;
  * Supports raw .wc7 (264 bytes / 0x108) and .wc7full (784 bytes / 0x310).
  */
 export function parseWc7File(raw: Uint8Array): ParsedWc7 | null {
+  return parseWonderCardPayload(raw, 807);
+}
+
+export function parseWonderCardPayload(raw: Uint8Array, speciesLimit: number): ParsedWc7 | null {
   let data: Uint8Array;
   if (raw.byteLength === 0x310) {
     data = raw.subarray(0x208, 0x310);
@@ -44,7 +48,7 @@ export function parseWc7File(raw: Uint8Array): ParsedWc7 | null {
   const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
   const species = dv.getUint16(0x82, true);
-  if (species <= 0 || species > 807) {
+  if (species <= 0 || species > speciesLimit) {
     return null;
   }
   const forme = data[0x84] ?? 0;

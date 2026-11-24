@@ -23,7 +23,11 @@ export interface ProfileStore6 {
   profiles: TrainerProfile6[];
 }
 
+import { isCalibration6, type Timeline6Request } from '../engine/gen6/tinyTimeline';
+
 export interface Session6 {
+  timeline?: Timeline6Request;
+  eggKey?: [number,number];
   initialSeedHex: string;
   startFrame: number;
   endFrame: number;
@@ -121,6 +125,8 @@ export function loadSession6(): Session6 {
         endFrame: Math.max(startFrame, frame('endFrame')),
         targetFrame: frame('targetFrame'),
         idState: isTinyState6(session.idState) ? session.idState : null,
+        ...(isCalibration6(session.timeline) ? { timeline: session.timeline } : {}),
+        ...(Array.isArray(session.eggKey) && session.eggKey.length===2 && session.eggKey.every(v=>isIntInRange(v,0xffffffff)) ? {eggKey:session.eggKey as [number,number]} : {}),
         idStartFrame,
         idEndFrame: Math.max(idStartFrame, frame('idEndFrame')),
       };

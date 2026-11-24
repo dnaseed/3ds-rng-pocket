@@ -22,7 +22,7 @@ export interface Egg7Config {
   otherTsvs: readonly number[];
 }
 
-function getRandomAbility(ability: number, value: number): number {
+export function getRandomAbility(ability: number, value: number): number {
   switch (ability) {
     case 0:
       return value < 0x50 ? 1 : 2;

@@ -15,6 +15,11 @@ export class MT19937 {
     }
   }
 
+  reseed(seed: number): void {
+    this.index = 0;
+    this.initSeed(seed);
+  }
+
   private initSeed(seed: number): void {
     this.state[0] = seed;
     for (let i = 1; i < STATE_SIZE; i++) {

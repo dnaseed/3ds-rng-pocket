@@ -68,6 +68,9 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
   const traits = getStationary6Traits(preset);
   const [options, setOptions] = useState(() => defaultOptions(preset));
   const [considerDelay, setConsiderDelay] = useState(true);
+  const [useTimeline, setUseTimeline] = useState(false);
+  const calibration = session.timeline;
+  const compatible = game !== 'VC' && calibration && calibration.oras === (game === 'OR' || game === 'AS') && ['instant','cutscene','weather'].includes(calibration.method);
   const [filter, setFilter] = useState(createDefaultRngFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [result, setResult] = useState<Results6Data<Stationary6Row> | null>(null);
@@ -115,6 +118,7 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
         seed: parseHex32(session.initialSeedHex) ?? 0, minFrame, maxFrame, targetFrame,
         tsv, trv, shinyCharm: profile.shinyCharm, filter: effectiveFilter,
         considerDelay, delay: options.delay, level,
+        timeline: useTimeline && compatible ? calibration : undefined,
         syncNature: options.nature, assumeSynced: options.assumeSynced, forceShiny: options.forceShiny,
         manual: {
           genderRatio: options.genderRatio, ability: options.ability, perfectIVs: options.iv3,
@@ -191,6 +195,7 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
       </section>
       <details className={cardClass}>
         <summary className="cursor-pointer text-sm font-semibold">{t('gen6.advanced')}</summary>
+        {compatible && <Check label="TinyMT Timeline" checked={useTimeline} onChange={setUseTimeline} />}
         <Check label={t('search.considerDelay')} checked={considerDelay} onChange={setConsiderDelay} />
         {considerDelay && <NumberField label={t('gen6.delay')} value={options.delay} max={4000}
           onChange={delay => setOptions({ ...options, delay })} />}

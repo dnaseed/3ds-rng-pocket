@@ -22,6 +22,36 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
 
   try {
     switch (req.type) {
+      case 'FINDER6_SEARCH': {
+        const { searchFinder6 } = await import('../engine/gen6/finder6');
+        post({ id: req.id, type: 'FINDER6_DONE', payload: searchFinder6(req.payload, onProgress) });
+        break;
+      }
+      case 'POKERUS6_SEARCH': {
+        const { searchPokerus6 } = await import('../engine/gen6/pokerus6');
+        post({ id: req.id, type: 'POKERUS6_DONE', payload: searchPokerus6(req.payload, onProgress) });
+        break;
+      }
+      case 'EGG6_SEARCH': {
+        const { searchEgg6 } = await import('../engine/gen6/egg6');
+        post({ id: req.id, type: 'EGG6_DONE', payload: searchEgg6(req.payload, onProgress) });
+        break;
+      }
+      case 'EVENT6_SEARCH': {
+        const { searchEvent6 } = await import('../engine/gen6/event6');
+        post({ id: req.id, type: 'EVENT6_DONE', payload: searchEvent6(req.payload, onProgress) });
+        break;
+      }
+      case 'WILD6_SEARCH': {
+        const { searchWild6 } = await import('../engine/gen6/wild6');
+        post({ id: req.id, type: 'WILD6_DONE', payload: searchWild6(req.payload, onProgress) });
+        break;
+      }
+      case 'TIMELINE6_SEARCH': {
+        const { searchTimeline6 } = await import('../engine/gen6/timelineSearch');
+        post({ id: req.id, type: 'TIMELINE6_DONE', payload: searchTimeline6(req.payload, onProgress) });
+        break;
+      }
       case 'STATIONARY6_SEARCH': {
         const { runStationary6Search } = await import('../engine/gen6/searches');
         const payload = runStationary6Search(req.payload, onProgress);

@@ -490,6 +490,54 @@ function parseWildCategories(pkmwSrc: string, marker: 'Species_USUM =' | 'Specie
   });
 }
 
+function extractWildGen6() {
+  const source = stripLineComments(readRef('Gen6/Gen6Encounter/LocationTable6.cs'));
+  const presets = stripLineComments(readRef('Gen6/PKMW6.cs'));
+  const hordeSource = stripLineComments(readRef('Gen6/Gen6Encounter/HordeArea6.cs'));
+  const mirageLevels = parseIntList(findNamedBlock(readRef('Gen6/Gen6Encounter/EncounterArea6.cs'), 'MirageLevel ='));
+  const locationNames = readTextLines('text_Location_xy_en.txt');
+
+  function getAreas(table: string) {
+    return splitTopLevelItems(findNamedBlock(source, table + ' =')).map(item => {
+      const body = item.includes('{') ? extractBraceBlock(item, item.indexOf('{')).block : '';
+      const fields = parseObjectAssignments(body);
+      const location = Number(fields.Location ?? 0);
+      const variant = Number(fields.idx ?? 0);
+      let species = parseNewArrayNumbers(fields.Species ?? '');
+      let levels = fields.Level?.includes('{') ? parseNewArrayNumbers(fields.Level)
+        : species.map(() => Number(fields.Level ?? 0));
+      if (table === 'ORASTable' && location >= 326 && location <= 332) {
+        species = species.flatMap(value => [value, value, value]);
+        levels = mirageLevels;
+      }
+      if (species.length !== levels.length) throw new Error('Invalid slot levels in ' + item);
+      return { location, variant, species, levels };
+    });
+  }
+
+  function getGroup(group: 'XY' | 'ORAS') {
+    const hordeClass = hordeSource.slice(hordeSource.indexOf('class HordeArea_' + group));
+    const specialHordes = splitTopLevelItems(findNamedBlock(hordeClass, 'SpecialHorde =')).map(parseNewArrayNumbers);
+    const methods = splitTopLevelItems(findNamedBlock(presets, 'Species_' + group + ' =')).flatMap(category => {
+      const fields = parseObjectAssignments(extractBraceBlock(category, category.indexOf('{')).block);
+      const list = fields.List!;
+      return splitTopLevelItems(extractBraceBlock(list, list.indexOf('{')).block).map(item => {
+        const preset = parseObjectAssignments(extractBraceBlock(item, item.indexOf('{')).block);
+        return { method: preset.Type!.replace('EncounterType.', ''), delay: Number(preset.Delay), rod: Number(preset.Species ?? 0) };
+      });
+    });
+    return {
+      methods, specialHordes,
+      hordeBase: parseIntList(findNamedBlock(hordeClass, (group === 'XY' ? 'XList' : 'ORList') + ' =')),
+      hordeAlternate: parseIntList(findNamedBlock(hordeClass, (group === 'XY' ? 'YList' : 'ASList') + ' =')),
+      horde: getAreas('Horde_' + group), smash: getAreas('RockSmash_' + group), fishing: getAreas('Fishing_' + group),
+    };
+  }
+
+  return { xy: getGroup('XY'), oras: getGroup('ORAS'), normal: getAreas('ORASTable'),
+    shadow: getAreas('Shadow_XY'), trap: getAreas('Trap_XY'), locationNames };
+}
+
 function extractWildUSUM() {
   const locSrc = stripLineComments(readRef('Gen7/Gen7Encounter/LocationTable7.cs'));
   const encSrc = stripLineComments(readRef('Gen7/Gen7Encounter/EncounterArea7.cs'));
@@ -674,6 +722,7 @@ function main() {
   const stationaryUSUM = extractStationaryTable('Species_USUM =');
   const stationarySM = extractStationaryTable('Species_SM =');
   const wild = extractWildUSUM();
+  fs.writeFileSync(path.join(OUT_DIR, 'wild_gen6.json'), JSON.stringify(extractWildGen6()));
   const textEn = extractTextEN();
   copyClockAssets();
 

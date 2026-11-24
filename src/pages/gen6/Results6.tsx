@@ -50,7 +50,7 @@ export function Results6<Row extends { frame: number }>({ result, error, renderR
       </div>}
       <div className="lg:overflow-y-auto lg:pr-1" ref={list}>
         <ul className="space-y-2">
-          {result.rows.slice(page * pageSize, (page + 1) * pageSize).map(row => <li key={row.frame}>{renderRow(row)}</li>)}
+          {result.rows.slice(page * pageSize, (page + 1) * pageSize).map((row, index) => <li key={page * pageSize + index}>{renderRow(row)}</li>)}
         </ul>
       </div>
     </> : <p className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-400">

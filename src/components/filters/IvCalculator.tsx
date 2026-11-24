@@ -17,8 +17,9 @@ export interface IvPersonalData {
 interface Props {
   encounter?: EncounterStats;
   statNames: readonly string[];
-  onApply: (ranges: IvRanges) => void;
+  onApply: (ranges: IvRanges, nature: number) => void;
   personalData?: IvPersonalData;
+  maxIvSpread?: number;
 }
 
 const inputClass = 'block mt-1 h-10 w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100';
@@ -33,8 +34,8 @@ export function IvCalculator(props: Props) {
         className="w-full px-3 py-2.5 text-left text-sm font-semibold text-amber-300">
         {i18n.t('filters.calcIvs')} <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
-      {open && <CalculatorFields {...props} onApply={ranges => {
-        props.onApply(ranges);
+      {open && <CalculatorFields {...props} onApply={(ranges,nature) => {
+        props.onApply(ranges,nature);
         setOpen(false);
         trigger.current?.focus();
       }} />}
@@ -42,7 +43,7 @@ export function IvCalculator(props: Props) {
   );
 }
 
-function CalculatorFields({ encounter, statNames, onApply, personalData }: Props) {
+function CalculatorFields({ encounter, statNames, onApply, personalData, maxIvSpread }: Props) {
   const { i18n, isUltra } = useApp();
   const getEntry = personalData?.getEntry ?? getFormeEntry;
   const speciesCount = personalData?.speciesCount ?? (isUltra ? 807 : 802);
@@ -119,7 +120,7 @@ function CalculatorFields({ encounter, statNames, onApply, personalData }: Props
           : ready ? i18n.t('filters.calcImpossible') : ''}
       </p>
       {trait >= 0 && ranges && <p>{i18n.t('filters.traitBounds')}</p>}
-      <button type="button" disabled={!ranges} onClick={() => ranges && onApply(ranges)}
+      <button type="button" disabled={!ranges || (maxIvSpread !== undefined && ranges.ivUp.some((v,i)=>v-ranges.ivLow[i]! > maxIvSpread))} onClick={() => ranges && onApply(ranges,nature)}
         className="min-h-10 w-full rounded-lg bg-amber-400 px-3 text-sm font-bold text-zinc-950 disabled:bg-zinc-800 disabled:text-zinc-400">
         {i18n.t('filters.applyRanges')}
       </button>

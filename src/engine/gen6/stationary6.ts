@@ -3,6 +3,8 @@ import { getGenderRatio, getHiddenPowerValue, getPRV, getPSV, isRandomGender, MA
 import type { RngResultBase } from '../core/types';
 import { MT19937 } from '../rng/mt19937';
 
+import { timeline6, type Timeline6Request } from './tinyTimeline';
+
 interface Stationary6ManualSettings {
   genderRatio?: number;
   ability?: 0 | 1 | 2 | 3;
@@ -19,6 +21,7 @@ export interface Stationary6SearchRequest {
   maxFrame: number;
   targetFrame: number;
   considerDelay: boolean;
+  timeline?: Timeline6Request;
   tsv: number;
   trv: number;
   shinyCharm: boolean;
@@ -69,10 +72,10 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
   const shinyLocked = forceShiny || (manual?.shinyLocked ?? traits.shinyLocked);
   const tsv = preset.otTsv ?? request.tsv;
   const pidRolls = request.shinyCharm && !shinyLocked && !alwaysSync ? 3 : 1;
-  const synchronize = alwaysSync || (traits.syncable && request.assumeSynced === true);
   const nature = preset.nature < 25 ? preset.nature : traits.syncable ? syncNature : undefined;
-  const fixedNature = synchronize && nature !== undefined && Number.isInteger(nature) && nature >= 0 && nature < 25
-    ? nature : undefined;
+  const calibration = request.timeline;
+  const spans = calibration && timeline6({ ...calibration, maxFrame, split: true });
+  let span = spans?.next();
   const genderRatio = manual?.genderRatio ?? (preset.species === 0 ? 0x7f : traits.genderRatio);
   const gender = getGenderRatio(genderRatio);
   const randomGender = isRandomGender(genderRatio);
@@ -126,8 +129,22 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
     cursor += [4, 5, 2][genderType]!;
   }
 
-  for (let frame = minFrame; frame <= maxFrame; frame++) {
+  for (let frame = minFrame; frame <= maxFrame; frame++, head++) {
+    if (head === 1024) {
+      words.splice(0, head);
+      states.splice(0, head);
+      head = 0;
+    }
     const rand = readWord(head);
+    if (spans) {
+      while (span && !span.done && span.value.end < frame) span = spans.next();
+      if (!span || span.done) return;
+      if (frame < span.value.frame || (frame - span.value.frame) % 2 !== 0) continue;
+    }
+    const synced = span && !span.done ? span.value.sync : request.assumeSynced === true;
+    const synchronize = alwaysSync || (traits.syncable && synced);
+    const fixedNature = synchronize && nature !== undefined && Number.isInteger(nature) && nature >= 0 && nature < 25
+      ? nature : undefined;
     // Generate6 skips the current word before calling Stationary6.
     cursor = head + delay + 1;
     for (let member = 0; member < target - 1; member++) {
@@ -179,12 +196,6 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
       hiddenPower: getHiddenPowerValue(ivs),
     };
 
-    // Keep the lookahead for the next frame and periodically discard consumed words.
-    head++;
-    if (head === 1024) {
-      words.splice(0, head);
-      states.splice(0, head);
-      head = 0;
-    }
+
   }
 }
