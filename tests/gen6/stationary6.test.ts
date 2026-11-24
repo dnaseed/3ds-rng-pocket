@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createI18n } from '../../src/data/i18n';
+import { getStationary6Categories } from '../../src/data/stationary6Catalog';
 import { searchStationary6, type Stationary6SearchRequest } from '../../src/engine/gen6/stationary6';
 import { toHex32 } from '../../src/engine/math/uint';
 
@@ -17,6 +18,7 @@ const rngColumns = [
 
 // HP Atk Def SpA SpD Spe Nature HPType PSV PRV Ability PID EC.
 const cases: {
+  game: Stationary6SearchRequest['game'];
   preset: Stationary6SearchRequest['preset'];
   delay: number;
   species: number;
@@ -24,7 +26,7 @@ const cases: {
   rows: string[];
 }[] = [
   {
-    preset: 'xy-mewtwo', delay: 0, species: 150, level: 70,
+    game: 'X', preset: 'xy:1:3', delay: 0, species: 150, level: 70,
     rows: [
       '31 1 5 31 5 31 Lonely Dark 3104 2 1 054DC74F 9D3F6149',
       '31 31 2 27 27 31 Adamant Dragon 0217 2 1 A665ABF7 054DC74F',
@@ -39,7 +41,7 @@ const cases: {
     ],
   },
   {
-    preset: 'xy-mewtwo', delay: 2, species: 150, level: 70,
+    game: 'X', preset: 'xy:1:3', delay: 2, species: 150, level: 70,
     rows: [
       '31 31 2 27 27 31 Adamant Dragon 3150 9 1 1ADFDE36 A665ABF7',
       '31 31 27 4 8 31 Quirky Ground 2803 7 1 FEDF51E8 1ADFDE36',
@@ -54,7 +56,7 @@ const cases: {
     ],
   },
   {
-    preset: 'oras-regirock', delay: 0, species: 377, level: 40,
+    game: 'OR', preset: 'oras:1:8', delay: 0, species: 377, level: 40,
     rows: [
       '31 1 5 31 5 31 Gentle Dark 3104 2 1 054DC74F 9D3F6149',
       '31 31 2 27 27 31 Docile Dragon 0217 2 1 A665ABF7 054DC74F',
@@ -69,7 +71,7 @@ const cases: {
     ],
   },
   {
-    preset: 'oras-regirock', delay: 158, species: 377, level: 40,
+    game: 'OR', preset: 'oras:1:8', delay: 158, species: 377, level: 40,
     rows: [
       '9 31 31 31 2 10 Modest Bug 1846 7 1 575D243A 1B4F13AB',
       '9 31 31 31 2 10 Modest Bug 3910 A 1 609194FB 575D243A',
@@ -87,8 +89,8 @@ const cases: {
 
 describe('Stationary Gen 6', () => {
   it.each(cases)('matches 3DSRNGTool for $preset with $delay frames of delay', scenario => {
-    const { preset, delay, species, level, rows: expected } = scenario;
-    const rows = [...searchStationary6({ ...search, preset, considerDelay: delay > 0 })];
+    const { game, preset, delay, species, level, rows: expected } = scenario;
+    const rows = [...searchStationary6({ ...search, game, preset, considerDelay: delay > 0 })];
     expect(rows).toHaveLength(expected.length);
     for (const [frame, row] of rows.entries()) {
       expect(row).toMatchObject({
@@ -105,7 +107,7 @@ describe('Stationary Gen 6', () => {
   });
 
   it('starts at a nonzero frame and preserves lookahead after discarding consumed words', () => {
-    const request = { ...search, preset: 'oras-regirock' as const, considerDelay: true, maxFrame: 1028 };
+    const request = { ...search, game: 'OR' as const, preset: 'oras:1:8', considerDelay: true, maxFrame: 1028 };
     const all = [...searchStationary6(request)];
     const tail = [...searchStationary6({ ...request, minFrame: 1022 })];
     expect(tail).toEqual(all.slice(1022).map(row => ({ ...row, elapsedFrames: row.elapsedFrames - 1022 })));
@@ -113,9 +115,113 @@ describe('Stationary Gen 6', () => {
 
   it('keeps a matching shiny PID for Regirock and flips the locked PID for Mewtwo', () => {
     const request = { ...search, tsv: 3104, trv: 2, maxFrame: 0, considerDelay: false };
-    const [regirock] = searchStationary6({ ...request, preset: 'oras-regirock' });
-    const [mewtwo] = searchStationary6({ ...request, preset: 'xy-mewtwo' });
+    const [regirock] = searchStationary6({ ...request, game: 'OR', preset: 'oras:1:8' });
+    const [mewtwo] = searchStationary6({ ...request, game: 'X', preset: 'xy:1:3' });
     expect(regirock).toMatchObject({ pid: 0x054dc74f, shiny: true, squareShiny: true });
     expect(mewtwo).toMatchObject({ pid: 0x154dc74f, shiny: false, squareShiny: false });
+  });
+});
+
+// Frame zero transcribed from 3DSRNGTool v1.0.6 with Consider Delay and Shiny Charm on.
+const additionalCases: {
+  name: string;
+  settings: Pick<Stationary6SearchRequest, 'game' | 'preset'> & Partial<Stationary6SearchRequest>;
+  expected: string;
+  framesUsed?: number;
+}[] = [
+  {
+    name: 'Wynaut gift egg',
+    settings: { game: 'OR', preset: 'oras:6:0' },
+    expected: '30 9 25 12 9 4 Naughty Water 3880 A 1 1 C37D31F7 94C0CAD4',
+  },
+  {
+    name: 'Chespin starter with delay',
+    settings: { game: 'X', preset: 'xy:5:0' },
+    expected: '5 25 27 29 14 27 Bold Steel 1784 E 1 2 B75CD8D2 22762AE2',
+  },
+  {
+    name: 'Omanyte fossil',
+    settings: { game: 'X', preset: 'xy:6:0' },
+    expected: '2 21 18 31 30 8 Modest Rock 3148 6 1 2 A89C6C5A 8D29467E',
+  },
+  {
+    name: 'Makuhita trade with a locked nature and IV',
+    settings: { game: 'OR', preset: 'oras:7:0' },
+    expected: '30 31 9 25 12 9 Brave Steel 3880 A 1 2 C37D31F7 94C0CAD4',
+  },
+  {
+    name: 'first Legendary Titan',
+    settings: { game: 'OR', preset: 'oras:5:0' },
+    expected: '19 31 31 29 0 31 Gentle Steel 1238 3 0 3 6F08226B 0A81D51C',
+    framesUsed: 9,
+  },
+  {
+    name: 'second Legendary Titan',
+    settings: { game: 'OR', preset: 'oras:5:0', bankTarget: 2 },
+    expected: '28 15 31 31 28 31 Quiet Steel 0845 9 0 3 F0F1C428 4CEB7984',
+    framesUsed: 15,
+  },
+  {
+    name: 'forced shiny Legendary Titan',
+    settings: { game: 'OR', preset: 'oras:5:0', bankTarget: 2, forceShiny: true },
+    expected: '28 15 31 31 28 31 Quiet Steel 0000 0 0 3 C428C428 4CEB7984',
+    framesUsed: 15,
+  },
+  {
+    name: 'Transporter Mew after a fixed-gender member',
+    settings: { game: 'VC', preset: 'vc:0:1', bankTarget: 2, transporterHistory: [0] },
+    expected: '31 31 31 31 31 13 - Dark 2206 8 0 1 FA3173D9 B06D6B8D',
+    framesUsed: 10,
+  },
+  {
+    name: 'Transporter Mew after a random-gender member',
+    settings: { game: 'VC', preset: 'vc:0:1', bankTarget: 2, transporterHistory: [1] },
+    expected: '31 31 31 31 31 13 - Dark 1457 6 0 1 AA0BF11D FA3173D9',
+    framesUsed: 9,
+  },
+  {
+    name: 'generic encounter with three PID rolls',
+    settings: { game: 'X', preset: 'xy:0:0' },
+    expected: '31 1 5 5 2 27 Adamant Steel 3150 9 2 2 1ADFDE36 9D3F6149',
+  },
+  {
+    name: 'generic encounter with Assume Synced and Hardy',
+    settings: { game: 'X', preset: 'xy:0:0', assumeSynced: true, syncNature: 0 },
+    expected: '31 1 5 5 2 27 Hardy Steel 3150 9 2 2 1ADFDE36 9D3F6149',
+  },
+];
+
+describe('Stationary Gen 6 catalog', () => {
+  it.each(additionalCases)('matches 3DSRNGTool for $name', ({ settings, expected, framesUsed }) => {
+    const [row] = searchStationary6({ ...search, maxFrame: 0, considerDelay: true, shinyCharm: true, ...settings });
+    expect(row).toBeDefined();
+    const result = row!;
+    expect([
+      ...result.ivs,
+      // The Transporter grid hides Nature, which is still generated by the original algorithm.
+      settings.game === 'VC' ? '-' : i18n.getNatureName(result.nature),
+      i18n.getHpTypeName(result.hiddenPower),
+      String(result.psv).padStart(4, '0'), result.prv.toString(16).toUpperCase(),
+      result.gender, result.ability, toHex32(result.pid), toHex32(result.ec),
+    ].join(' ')).toBe(expected);
+    if (framesUsed !== undefined) expect(result.framesUsed).toBe(framesUsed);
+    expect(result.squareShiny).toBe(settings.forceShiny ?? false);
+  });
+
+  it('rejects a game-exclusive preset in the opposite release', () => {
+    const lugia = { ...search, preset: 'oras:2:3', considerDelay: true };
+    expect(() => [...searchStationary6({ ...lugia, game: 'OR' })]).toThrow('unavailable');
+    expect([...searchStationary6({ ...lugia, game: 'AS' })][0]?.species).toBe(249);
+  });
+
+  it.each(['X', 'Y', 'OR', 'AS', 'VC'] as const)('generates a frame for every available %s preset', game => {
+    const presets = getStationary6Categories(game).flatMap(category => category.list);
+    for (const preset of presets) {
+      const [row] = searchStationary6({
+        ...search, game, preset: preset.id, considerDelay: true, maxFrame: 0,
+      });
+      expect(row).toMatchObject({ species: preset.species, forme: preset.forme, delay: preset.delay });
+      expect(row?.ivs.every(iv => iv >= 0 && iv <= 31)).toBe(true);
+    }
   });
 });

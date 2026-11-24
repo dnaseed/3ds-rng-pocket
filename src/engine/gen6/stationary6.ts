@@ -1,15 +1,20 @@
-import { getHiddenPowerValue, getPRV, getPSV, MAX_FRAME } from '../core/pokemonMath';
+import { getStationary6Categories, getStationary6Traits, type Stationary6Game } from '../../data/stationary6Catalog';
+import { getGenderRatio, getHiddenPowerValue, getPRV, getPSV, isRandomGender, MAX_FRAME } from '../core/pokemonMath';
 import type { RngResultBase } from '../core/types';
 import { MT19937 } from '../rng/mt19937';
 
-const PRESETS = {
-  'xy-mewtwo': { species: 150, level: 70, delay: 2, ability: 1, shinyLocked: true },
-  'oras-regirock': { species: 377, level: 40, delay: 158, ability: 0, shinyLocked: false },
-} as const;
+interface Stationary6ManualSettings {
+  genderRatio?: number;
+  ability?: 0 | 1 | 2 | 3;
+  perfectIVs?: boolean;
+  alwaysSync?: boolean;
+  shinyLocked?: boolean;
+}
 
 export interface Stationary6SearchRequest {
   seed: number;
-  preset: keyof typeof PRESETS;
+  game: Stationary6Game;
+  preset: string;
   minFrame: number;
   maxFrame: number;
   targetFrame: number;
@@ -19,6 +24,13 @@ export interface Stationary6SearchRequest {
   shinyCharm: boolean;
   syncNature?: number;
   assumeSynced?: boolean;
+  delay?: number;
+  level?: number;
+  forceShiny?: boolean;
+  manual?: Stationary6ManualSettings;
+  bankTarget?: number;
+  /** Transporter entries before the target: 0 fixed gender, 1 random gender, 2 Mew/Celebi. */
+  transporterHistory?: readonly (0 | 1 | 2)[];
 }
 
 export interface Stationary6Row extends RngResultBase {
@@ -28,27 +40,51 @@ export interface Stationary6Row extends RngResultBase {
   rand: number;
   state: number;
   delay: number;
+  framesUsed: number;
 }
 
 /** Gen 6 bounded rolls use the high word of the product. The small bounds here are exact in a JS number. */
-function boundedRoll(word: number, bound: 6 | 25): number {
+function boundedRoll(word: number, bound: 6 | 25 | 252): number {
   return Math.floor((word * bound) / 0x100000000);
 }
 
-/** Searches normal stationary frames for the two initial Gen 6 presets. */
+/** Searches a normal frame range using the selected Gen 6 template. */
 export function* searchStationary6(request: Stationary6SearchRequest): Generator<Stationary6Row> {
-  const { seed, minFrame, maxFrame, targetFrame, tsv, trv, syncNature, assumeSynced } = request;
+  const { seed, minFrame, maxFrame, targetFrame, trv, syncNature } = request;
   if (!Number.isInteger(minFrame) || !Number.isInteger(maxFrame) ||
       minFrame < 0 || minFrame > maxFrame || maxFrame > MAX_FRAME) {
     throw new RangeError('Invalid stationary frame range');
   }
 
-  const preset = PRESETS[request.preset];
-  const delay = request.considerDelay ? preset.delay : 0;
-  const pidRolls = request.shinyCharm && !preset.shinyLocked ? 3 : 1;
-  const synchronize = assumeSynced ?? false;
-  const forcedNature = synchronize && syncNature !== undefined && syncNature >= 0 && syncNature < 25
-    ? syncNature : undefined;
+  const preset = getStationary6Categories(request.game).flatMap(category => category.list)
+    .find(entry => entry.id === request.preset);
+  if (!preset) throw new RangeError('Stationary preset is unavailable in this game');
+
+  const traits = getStationary6Traits(preset);
+  const manual = preset.conceptual ? request.manual : undefined;
+  const iv3 = preset.conceptual ? manual?.perfectIVs ?? traits.iv3 : traits.iv3 && !preset.egg;
+  const alwaysSync = manual?.alwaysSync ?? traits.alwaysSync;
+  const forceShiny = request.forceShiny === true;
+  const shinyLocked = forceShiny || (manual?.shinyLocked ?? traits.shinyLocked);
+  const tsv = preset.otTsv ?? request.tsv;
+  const pidRolls = request.shinyCharm && !shinyLocked && !alwaysSync ? 3 : 1;
+  const synchronize = alwaysSync || (traits.syncable && request.assumeSynced === true);
+  const nature = preset.nature < 25 ? preset.nature : traits.syncable ? syncNature : undefined;
+  const fixedNature = synchronize && nature !== undefined && Number.isInteger(nature) && nature >= 0 && nature < 25
+    ? nature : undefined;
+  const genderRatio = manual?.genderRatio ?? (preset.species === 0 ? 0x7f : traits.genderRatio);
+  const gender = getGenderRatio(genderRatio);
+  const randomGender = isRandomGender(genderRatio);
+  const fixedAbility = manual?.ability ?? Math.min(preset.ability, 3);
+  const level = preset.level || (request.level ?? 0);
+  const delay = request.considerDelay ? (request.delay ?? preset.delay) : 0;
+  if (!Number.isInteger(delay) || delay < 0 || delay > 4000) throw new RangeError('Invalid stationary delay');
+  const target = preset.bank ? request.bankTarget ?? 1 : 1;
+  if (!Number.isInteger(target) || target < 1 || target > preset.numOfPkm) {
+    throw new RangeError('Invalid Pokémon Link or Transporter target');
+  }
+  const transporter = request.game === 'VC';
+  const perfectCount = transporter && (preset.species === 151 || preset.species === 251) ? 5 : iv3 ? 3 : 0;
   const rng = new MT19937(seed);
   rng.advance(minFrame);
 
@@ -69,43 +105,75 @@ export function* searchStationary6(request: Stationary6SearchRequest): Generator
     return readWord(cursor++);
   }
 
-  for (let frame = minFrame; frame <= maxFrame; frame++) {
-    const rand = readWord(head);
-    // Generate6 skips the current word, then Stationary6 advances 60 for these presets.
-    cursor = head + delay + 61;
-    const ec = nextWord();
-    let pid = 0;
-    let shiny = false;
-    for (let roll = 0; roll < pidRolls; roll++) {
-      pid = nextWord();
-      if (getPSV(pid) === tsv) {
-        if (preset.shinyLocked) pid = (pid ^ 0x10000000) >>> 0;
-        else shiny = true;
-        break;
-      }
-    }
-
-    const ivs: RngResultBase['ivs'] = [-1, -1, -1, -1, -1, -1];
-    for (let perfect = 0; perfect < 3;) {
+  function selectPerfectIVs(ivs: RngResultBase['ivs'], count: number) {
+    for (let remaining = count; remaining > 0;) {
       const stat = boundedRoll(nextWord(), 6);
       if (ivs[stat] === -1) {
         ivs[stat] = 31;
-        perfect++;
+        remaining--;
       }
     }
+  }
+
+  function skipBankMember(genderType: 0 | 1 | 2) {
+    if (!iv3) {
+      cursor += 10;
+      return;
+    }
+    cursor += 2;
+    selectPerfectIVs([-1, -1, -1, -1, -1, -1], genderType === 2 ? 5 : 3);
+    cursor += [4, 5, 2][genderType]!;
+  }
+
+  for (let frame = minFrame; frame <= maxFrame; frame++) {
+    const rand = readWord(head);
+    // Generate6 skips the current word before calling Stationary6.
+    cursor = head + delay + 1;
+    for (let member = 0; member < target - 1; member++) {
+      skipBankMember(transporter ? (request.transporterHistory?.[member] ?? (randomGender ? 1 : 0)) : 0);
+    }
+    const start = cursor;
+    if (!alwaysSync) cursor += 60;
+    const ec = nextWord();
+    let pid = 0;
+    let shiny = false;
+    let squareShiny = false;
+    for (let roll = 0; roll < pidRolls; roll++) {
+      pid = nextWord();
+      if (getPSV(pid) === tsv) {
+        if (shinyLocked) {
+          pid = (pid ^ 0x10000000) >>> 0;
+        } else {
+          shiny = true;
+          squareShiny = getPRV(pid) === trv;
+        }
+        break;
+      }
+      if (forceShiny) {
+        const low = pid & 0xffff;
+        pid = (((((tsv << 4) | trv) ^ low) << 16) | low) >>> 0;
+        shiny = squareShiny = true;
+      }
+    }
+
+    const ivs = (preset.ivs?.slice() ?? [-1, -1, -1, -1, -1, -1]) as RngResultBase['ivs'];
+    // Template locks take priority over random guaranteed IVs.
+    selectPerfectIVs(ivs, Math.min(perfectCount, ivs.filter(iv => iv === -1).length));
     for (let stat = 0; stat < ivs.length; stat++) {
       if (ivs[stat] === -1) ivs[stat] = nextWord() >>> 27;
     }
 
-    const ability = preset.ability || (nextWord() >>> 31) + 1;
-    const nature = forcedNature ?? boundedRoll(nextWord(), 25);
+    const ability = fixedAbility || (nextWord() >>> 31) + 1;
+    const resultNature = fixedNature ?? boundedRoll(nextWord(), 25);
+    const resultGender = randomGender ? (boundedRoll(nextWord(), 252) >= gender ? 1 : 2) : gender;
     const prv = getPRV(pid);
     yield {
       frame, shift: frame - targetFrame, elapsedFrames: frame - minFrame,
       rand, state: states[head]!, delay,
-      species: preset.species, forme: 0, level: preset.level, gender: 0,
-      ec, pid, ivs, ability, nature, synchronize,
-      psv: getPSV(pid), prv, shiny, squareShiny: shiny && prv === trv,
+      framesUsed: (cursor - start) & 0xff,
+      species: preset.species, forme: preset.forme, level, gender: resultGender,
+      ec, pid, ivs, ability, nature: resultNature, synchronize,
+      psv: getPSV(pid), prv, shiny, squareShiny,
       hiddenPower: getHiddenPowerValue(ivs),
     };
 
