@@ -28,7 +28,7 @@
 
 Gen 7 frame outputs were compared row by row with **3DSRNGTool v1.0.6** on sampled **Ultra Sun** and **Moon** scenarios covering Stationary, Wild, Egg, Event, and Trainer ID RNG.
 
-Clock readings and frame advances are entered manually. Planned additions include Gen 6 (X/Y and Omega Ruby/Alpha Sapphire) and optional console integration.
+Clock readings and frame advances are entered manually. In the v2.0.0 release candidate, choose **Open Gen 6** for X, Y, Omega Ruby or Alpha Sapphire. Gen 6 has its own profiles, MT seed, TinyMT Timeline and encounter searches.
 
 ## Use online or install on a phone
 

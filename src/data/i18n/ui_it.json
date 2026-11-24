@@ -89,14 +89,11 @@
     "gen6Games": "X · Y · Omega Ruby · Alpha Sapphire",
     "gen6Desc": "MT19937, TinyMT Timeline, Stationary, Orde, DexNav, Safari Amici, Egg, Event (.wc6) e ID RNG.",
     "active": "Disponibile",
-    "comingSoon": "In arrivo",
     "openGen": "Apri Gen 7",
     "backToMenu": "Cambia Generazione",
     "credits": "Porting PWA open-source basato su 3DSRNGTool (wwwwwwzx · MIT)."
   },
   "gen6": {
-    "preview": "Anteprima",
-    "previewDesc": "Imposta il seed, cerca i frame Stationary e ID RNG e gestisci i profili Gen 6.",
     "open": "Apri Gen 6",
     "loading": "Caricamento Gen 6…",
     "navigation": "Strumenti Gen 6",

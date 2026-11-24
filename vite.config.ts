@@ -20,7 +20,7 @@ export default defineConfig({
         id: './',
         name: '3DS RNG Pocket',
         short_name: '3DS RNG',
-        description: 'Mobile RNG tools for Pokémon Sun, Moon, Ultra Sun and Ultra Moon. Frame searches work offline after the first load. Save/ID clock seed lookup requires internet.',
+        description: 'Mobile RNG tools for PokÃ©mon Sun, Moon, Ultra Sun and Ultra Moon. Frame searches work offline after the first load. Save/ID clock seed lookup requires internet.',
         theme_color: '#09090b',
         background_color: '#09090b',
         display: 'standalone',

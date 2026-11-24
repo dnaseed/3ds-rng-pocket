@@ -89,14 +89,11 @@
     "gen6Games": "X · Y · Omega Ruby · Alpha Sapphire",
     "gen6Desc": "MT19937, TinyMT Timeline, Stationary, Hordes, DexNav, Friend Safari, Egg, Event (.wc6), and ID RNG.",
     "active": "Available",
-    "comingSoon": "Coming Soon",
     "openGen": "Open Gen 7",
     "backToMenu": "Switch Generation",
     "credits": "Open-source PWA port based on 3DSRNGTool (wwwwwwzx · MIT)."
   },
   "gen6": {
-    "preview": "Preview",
-    "previewDesc": "Set up a seed, search Stationary and Trainer ID frames, and manage Gen 6 profiles.",
     "open": "Open Gen 6",
     "loading": "Loading Gen 6…",
     "navigation": "Gen 6 tools",

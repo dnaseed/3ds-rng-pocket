@@ -1,9 +1,8 @@
-import { ArrowRight, Lock, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { ArrowRight, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 
 export function HomeMenuPage() {
   const { i18n, lang, setLang, isOnline, setActiveGen } = useApp();
-  const gen6Preview = import.meta.env.DEV || import.meta.env.VITE_ENABLE_GEN6 === 'true';
 
   return (
     <div className="min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col safe-pt safe-pb">
@@ -100,55 +99,19 @@ export function HomeMenuPage() {
             </div>
           </button>
 
-          {gen6Preview ? (
-            <button type="button" onClick={() => setActiveGen('gen6')}
-              className="w-full text-left rounded-3xl bg-zinc-900 border border-sky-500/40 hover:border-sky-400/70 p-4 lg:p-6 space-y-3 transition">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <span className="block text-base font-bold text-zinc-100">{i18n.t('home.gen6Title')}</span>
-                  <span className="block text-xs font-semibold text-sky-300">{i18n.t('home.gen6Games')}</span>
-                </div>
-                <span className="rounded-full bg-sky-500/15 px-2.5 py-1 text-[11px] text-sky-300">{i18n.t('gen6.preview')}</span>
-              </div>
-              <p className="text-xs lg:text-sm text-zinc-300">{i18n.t('gen6.previewDesc')}</p>
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300">
-                {i18n.t('gen6.open')} <ArrowRight className="w-4 h-4" />
-              </span>
-            </button>
-          ) : <div
-            aria-disabled="true"
-            className="w-full rounded-3xl bg-zinc-900/50 border border-zinc-800/90 p-4 space-y-2.5 opacity-65 select-none"
-          >
+          <button type="button" onClick={() => setActiveGen('gen6')}
+            className="w-full text-left rounded-3xl bg-zinc-900 border border-sky-500/40 hover:border-sky-400/70 p-4 lg:p-6 space-y-3 transition">
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <span className="text-base font-bold text-zinc-200">
-                    {i18n.t('home.gen6Title')}
-                  </span>
-                </div>
-                <div className="text-xs font-medium text-sky-300/80">
-                  {i18n.t('home.gen6Games')}
-                </div>
+                <span className="block text-base font-bold text-zinc-100">{i18n.t('home.gen6Title')}</span>
+                <span className="block text-xs font-semibold text-sky-300">{i18n.t('home.gen6Games')}</span>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-[11px] font-semibold shrink-0">
-                {i18n.t('home.comingSoon')}
-              </span>
             </div>
-
-            <p className="lg:hidden text-xs text-zinc-400 leading-relaxed">{i18n.t('home.gen6Desc')}</p>
-
-            <div className="lg:hidden flex items-center gap-1.5 pt-0.5">
-              {['X', 'Y', 'OR', 'AS'].map((v) => (
-                <span
-                  key={v}
-                  className="px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-400 font-mono text-[11px] font-bold"
-                >
-                  {v}
-                </span>
-              ))}
-            </div>
-          </div>}
+            <p className="text-xs lg:text-sm text-zinc-300">{i18n.t('home.gen6Desc')}</p>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300">
+              {i18n.t('gen6.open')} <ArrowRight className="w-4 h-4" />
+            </span>
+          </button>
         </div>
       </main>
 
