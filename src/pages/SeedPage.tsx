@@ -1,5 +1,5 @@
 import { AlertCircle, Calculator, CheckCircle2, Loader2, Search, Settings2, WifiOff } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ClockPickerGrid } from '../components/clock/ClockPickerGrid';
 import { ClockSequenceBar } from '../components/clock/ClockSequenceBar';
 import { HexSeedInput } from '../components/common/HexSeedInput';
@@ -13,7 +13,9 @@ import { useSearchWorker } from '../workers/useSearchWorker';
 
 type SeedMode = 'save' | 'id' | 'qr';
 
+const OverlayScanner = lazy(() => import('../components/clock/PokeReaderScanner'));
 export function SeedPage() {
+  const [scan,setScan]=useState(false);
   const {
     i18n,
     isUltra,
@@ -189,6 +191,8 @@ export function SeedPage() {
 
   const seedInputsNode = (
     <div className="seed-inputs space-y-3">
+      <button type="button" className="choice-button rounded-lg px-3 py-2" onClick={()=>setScan(true)}>{i18n.lang==="it"?"Scansiona overlay":"Scan overlay"}</button>
+      {scan && <Suspense fallback={<span>…</span>}><OverlayScanner close={()=>setScan(false)}/></Suspense>}
       {/* Mode Segmented Control */}
       <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
         {(
