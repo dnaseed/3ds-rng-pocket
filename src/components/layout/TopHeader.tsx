@@ -1,5 +1,5 @@
 import { useDialogFocus } from '../common/useDialogFocus';
-import { ChevronDown, Clock, Layers, SlidersHorizontal, Sparkles, Target, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Clock, Layers, SlidersHorizontal, Sparkles, Target, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { GameVersion6, GameVersionId } from '../../engine/core/types';
 import { useApp } from '../../store/AppContext';
@@ -36,7 +36,7 @@ export function TopHeader() {
     activeProfile={app.activeProfile} profiles={app.profileStore.profiles} selectProfile={app.selectProfile}
     initialSeedHex={app.initialSeedHex} setInitialSeedHex={app.setInitialSeedHex}
     targetFrame={app.targetFrame} setTargetFrame={app.setTargetFrame}
-    openProfiles={() => { app.setMoreSection('profiles'); app.setActiveTab('more'); }}
+    openProfiles={() => app.selectSection7('profiles')}
     openSeed={() => app.setActiveTab('seed')}
   />;
 }
@@ -92,7 +92,12 @@ export function GenerationHeader({
   return (
     <>
       <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 safe-pt">
-        <div className="max-w-xl lg:max-w-[1440px] lg:px-6 mx-auto px-2.5 h-13 flex items-center justify-between gap-2">
+        <div className="max-w-xl lg:max-w-[1440px] lg:px-6 mx-auto px-2.5 h-13 flex items-center gap-1.5 sm:gap-2">
+          <button type="button" onClick={() => setActiveGen('home')}
+            aria-label={i18n.t('home.backToMenu')} title={i18n.t('home.backToMenu')}
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-600">
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
           {/* Active Profile Pill + Online Dot */}
           <button
             type="button"
@@ -101,12 +106,12 @@ export function GenerationHeader({
               setShowTargetPopover(false);
               setShowPicker((v) => !v);
             }}
-            className="flex items-center gap-1.5 min-h-10 px-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-100 active:scale-95 transition truncate min-w-0 shrink max-w-[43%]"
+            className="flex items-center gap-1.5 min-h-10 px-2 sm:px-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-100 active:scale-95 transition truncate min-w-0 shrink max-w-[43%]"
             title={i18n.t(isOnline ? 'app.online' : 'app.offline')}
             aria-haspopup="dialog" aria-expanded={showPicker}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              className={`hidden min-[400px]:block w-1.5 h-1.5 rounded-full shrink-0 ${
                 isOnline ? 'bg-emerald-400' : 'bg-zinc-500'
               }`}
             />
@@ -119,11 +124,11 @@ export function GenerationHeader({
             </span>
             <span className="truncate">{activeProfile.name}</span>
             {activeProfile.shinyCharm && <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />}
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <ChevronDown className="hidden min-[400px]:block w-3.5 h-3.5 text-zinc-400 shrink-0" />
           </button>
 
           {/* Right: Seed Pill + Target Frame Pill + Lang */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="ml-auto flex items-center gap-1 shrink-0 sm:gap-1.5">
             <button
               type="button"
               onClick={() => {
@@ -132,7 +137,7 @@ export function GenerationHeader({
                 setDraftSeed(initialSeedHex);
                 setShowSeedPopover((v) => !v);
               }}
-              className={`flex items-center gap-1 h-10 px-2.5 rounded-full bg-zinc-900 border font-mono text-[11px] tabular-nums text-amber-300 active:scale-95 transition ${
+              className={`flex items-center gap-1 h-10 px-2 sm:px-2.5 rounded-full bg-zinc-900 border font-mono text-[11px] tabular-nums text-amber-300 active:scale-95 transition ${
                 showSeedPopover ? 'border-amber-500' : 'border-zinc-800'
               }`}
               title={seedLabel} aria-label={mt ? `${seedLabel} · ${initialSeedHex}` : undefined}
@@ -148,7 +153,7 @@ export function GenerationHeader({
                 setShowSeedPopover(false);
                 setShowTargetPopover((v) => !v);
               }}
-              className={`flex items-center gap-1 h-10 px-2.5 rounded-full bg-zinc-900 border font-mono text-[11px] tabular-nums text-sky-300 active:scale-95 transition ${
+              className={`flex items-center gap-1 h-10 px-2 sm:px-2.5 rounded-full bg-zinc-900 border font-mono text-[11px] tabular-nums text-sky-300 active:scale-95 transition ${
                 showTargetPopover ? 'border-sky-400' : 'border-zinc-800'
               }`}
               title={i18n.t('search.targetFrame')} aria-label={mt ? `${i18n.t('search.targetFrame')} · ${targetFrame}` : undefined}
@@ -162,7 +167,7 @@ export function GenerationHeader({
               type="button"
               onClick={() => setLang(lang === 'it' ? 'en' : 'it')}
               aria-label={i18n.t('profiles.language')}
-              className="h-10 min-w-10 px-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-bold uppercase text-zinc-200 active:scale-95 transition"
+              className="h-10 min-w-9 px-2 sm:min-w-10 sm:px-2.5 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-bold uppercase text-zinc-200 active:scale-95 transition"
             >
               {lang}
             </button>

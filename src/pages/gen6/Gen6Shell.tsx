@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Activity, useEffect, useRef, useState } from 'react';
 import {
   loadProfileStore6, loadSession6, saveProfileStore6, saveSession6, type ProfileStore6, type Session6,
 } from '../../services/gen6Storage';
@@ -18,10 +18,7 @@ import { Finder6Page } from './Finder6Page';
 import { Profiles6Page } from './Profiles6Page';
 
 export default function Gen6Shell() {
-  const { i18n } = useApp();
-  const [tab, setTab] = useState<NavigationSection>('seed');
-  const [seedMode, setSeedMode] = useState<'mt' | 'timeline' | 'finder'>('mt');
-  const [moreSection, setMoreSection] = useState<(typeof secondaryTabs)[number]>('event');
+  const { i18n, tab6: tab, more6: moreSection, seedMode6: seedMode, selectSection6 } = useApp();
   const [store, setStore] = useState(loadProfileStore6);
   const [session, setSession] = useState(loadSession6);
   const [profileSaveFailed, setProfileSaveFailed] = useState(false);
@@ -57,33 +54,31 @@ export default function Gen6Shell() {
   const profileScope = JSON.stringify(profile);
   const profiles = store.profiles.map(entry => ({ ...entry, ...computeTsvTrv(entry.tid, entry.sid) }));
   const secondary = secondaryTabs.some(section => section === tab);
-  const selectSection = (section: NavigationSection) => {
-    if (section === 'event' || section === 'id' || section === 'tools' || section === 'profiles') setMoreSection(section);
-    setTab(section);
-  };
-  const openTimeline = () => {
-    setTab('seed');
-    setSeedMode('timeline');
-  };
+  const selectSection = (section: NavigationSection) => selectSection6(section);
+  const openTimeline = () => selectSection6('seed', 'timeline');
 
   return <div className="app-shell min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col">
     <GenerationHeader mt activeProfile={{ ...profile, ...computeTsvTrv(profile.tid, profile.sid) }}
       profiles={profiles} selectProfile={id => setStore(current => ({ ...current, activeProfileId: id }))}
       initialSeedHex={session.initialSeedHex} setInitialSeedHex={initialSeedHex => updateSession({ initialSeedHex })}
       targetFrame={session.targetFrame} setTargetFrame={targetFrame => updateSession({ targetFrame })}
-      openProfiles={() => selectSection('profiles')} openSeed={() => { setTab('seed'); setSeedMode('mt'); }} />
+      openProfiles={() => selectSection('profiles')} openSeed={() => { selectSection6('seed', 'mt'); }} />
     <SectionNavigation active={tab} select={selectSection} />
     {(profileSaveFailed || sessionSaveFailed) &&
       <p role="alert" className="px-3 py-1 text-xs text-rose-300">{i18n.t('gen6.storageError')}</p>}
     <main ref={mainRef} className="flex-1 w-full max-w-xl mx-auto px-3 pt-3">
       {secondary && <SectionNavigation active={tab} select={selectSection} secondary />}
-      {tab === 'seed' && <div className="gen6-seed-view"><div className="grid grid-cols-3 gap-1 rounded-2xl border border-zinc-800 bg-zinc-900 p-1 mb-2">{(['mt','timeline','finder'] as const).map(mode => <button key={mode} className="choice-button min-h-10 rounded-xl px-1 text-xs font-semibold" aria-pressed={mode === seedMode} onClick={() => setSeedMode(mode)}>{mode === 'mt' ? 'Seed MT' : mode === 'finder' ? 'MT Seed Finder' : 'TinyMT Timeline'}</button>)}</div>
-        {seedMode === 'mt' ? <Seed6Page session={session} updateSession={updateSession} onStationary={() => setTab('stationary')} /> : seedMode === 'finder' ? <Finder6Page seed={session.initialSeedHex} apply={initialSeedHex=>{updateSession({initialSeedHex});setSeedMode('mt');}}/> : <Timeline6Page key={profileScope} game={profile.gameVersion} saved={session.timeline} onSave={timeline=>updateSession({timeline})}/>}</div>}
+      {tab === 'seed' && <div className="gen6-seed-view"><div className="grid grid-cols-3 gap-1 rounded-2xl border border-zinc-800 bg-zinc-900 p-1 mb-2">{(['mt','timeline','finder'] as const).map(mode => <button key={mode} className="choice-button min-h-10 rounded-xl px-1 text-xs font-semibold" aria-pressed={mode === seedMode} onClick={() => selectSection6('seed', mode)}>{mode === 'mt' ? 'Seed MT' : mode === 'finder' ? 'MT Seed Finder' : 'TinyMT Timeline'}</button>)}</div>
+        {seedMode === 'mt' ? <Seed6Page session={session} updateSession={updateSession} onStationary={() => selectSection6('stationary')} /> : seedMode === 'finder' ? <Finder6Page seed={session.initialSeedHex} apply={initialSeedHex=>{updateSession({initialSeedHex});selectSection6('seed', 'mt');}}/> : <Timeline6Page key={profileScope} game={profile.gameVersion} saved={session.timeline} onSave={timeline=>updateSession({timeline})}/>}</div>}
       {tab === 'egg' && <Egg6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
       {tab === 'event' && <Event6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
       {tab === 'tools' && <Pokerus6Page key={profileScope} profile={profile} session={session} updateSession={updateSession}/>}
-      {tab === 'stationary' && <Stationary6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} />}
-      {tab === 'wild' && <Wild6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} />}
+      <div className={tab === 'stationary' ? 'contents' : 'hidden gen6-inactive'}>
+        <Activity mode={tab === 'stationary' ? 'visible' : 'hidden'}><Stationary6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} /></Activity>
+      </div>
+      <div className={tab === 'wild' ? 'contents' : 'hidden gen6-inactive'}>
+        <Activity mode={tab === 'wild' ? 'visible' : 'hidden'}><Wild6Page key={profileScope} profile={profile} session={session} updateSession={updateSession} onOpenTimeline={openTimeline} /></Activity>
+      </div>
       {tab === 'id' && <Id6Page key={profileScope} scope={profileScope} session={session} updateSession={updateSession} />}
       {tab === 'profiles' && <Profiles6Page store={store} updateStore={updateStore} />}
     </main>

@@ -1,5 +1,7 @@
 {
   "app": {
+    "decrease": "Decrease",
+    "increase": "Increase",
     "title": "3DS RNG Pocket",
     "subtitle": "Sun, Moon, Ultra Sun & Ultra Moon",
     "online": "Online",
@@ -176,6 +178,8 @@
     "openStationary": "Go to Stationary",
     "tinyTimelineTool": "Tiny Timeline Tool",
     "timelineActive": "Calibration active",
+    "activeCalibration": "Calibration: {method}",
+    "wildCalibrationMismatch": "Saved calibration: {saved} ({family}). Open Tiny Timeline Tool and select {expected} ({game}).",
     "timelineNeedsSetup": "Configure a TinyMT state and calls in Tiny Timeline Tool before running a Timeline search.",
     "gameNames": { "X": "Pokémon X", "Y": "Pokémon Y", "OR": "Omega Ruby", "AS": "Alpha Sapphire", "VC": "Poké Transporter" },
     "categories": { "-": "Manual encounter", "Pokemon Link": "Pokémon Link", "Poke Transporter": "Poké Transporter" }

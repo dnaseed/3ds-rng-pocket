@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BottomNav, SectionNavigation, type NavigationSection } from './components/layout/BottomNav';
+import { BottomNav, SectionNavigation } from './components/layout/BottomNav';
 import { TopHeader } from './components/layout/TopHeader';
 import { EggPage } from './pages/EggPage';
 import { EventPage } from './pages/EventPage';
@@ -15,7 +15,7 @@ import { AppProvider, useApp } from './store/AppContext';
 const Gen6Shell = lazy(() => import('./pages/gen6/Gen6Shell'));
 
 function AppShell() {
-  const { activeGen, activeTab, setActiveTab, moreSection, setMoreSection, i18n } = useApp();
+  const { activeGen, activeTab, moreSection, selectSection7, i18n } = useApp();
 
   if (activeGen === 'home') {
     return <HomeMenuPage />;
@@ -25,20 +25,11 @@ function AppShell() {
   }
 
   const activeSection = activeTab === 'more' ? moreSection : activeTab;
-  const selectSection = (section: NavigationSection) => {
-    if (section === 'event' || section === 'id' || section === 'tools' || section === 'profiles') {
-      setMoreSection(section);
-      setActiveTab('more');
-    } else {
-      setActiveTab(section);
-    }
-  };
-
   return (
     <div className="app-shell min-h-dvh bg-zinc-950 text-zinc-100 flex flex-col">
       <TopHeader />
 
-      <SectionNavigation active={activeSection} select={selectSection} />
+      <SectionNavigation active={activeSection} select={selectSection7} />
       <main className="flex-1 max-w-xl w-full mx-auto px-3 pt-3">
         {activeTab === 'seed' && <SeedPage />}
         {activeTab === 'stationary' && <StationaryPage />}
@@ -47,7 +38,7 @@ function AppShell() {
 
         {activeTab === 'more' && (
           <div className="more-page space-y-3">
-            <SectionNavigation active={moreSection} select={selectSection} secondary />
+            <SectionNavigation active={moreSection} select={selectSection7} secondary />
 
             {moreSection === 'event' && <EventPage />}
             {moreSection === 'id' && <IdPage />}

@@ -31,7 +31,7 @@ export function SeedPage() {
     setIdStartFrame,
     setIdClockCorrection,
     setActiveTab,
-    setMoreSection,
+    selectSection7,
   } = useApp();
 
   const [mode, setMode] = useState<SeedMode>('save');
@@ -178,8 +178,7 @@ export function SeedPage() {
     } else {
       setIdStartFrame(getStartingFrame(isUltra, 4));
       setIdClockCorrection(Math.max(0, Math.min(16, res.add)));
-      setMoreSection('id');
-      setActiveTab('more');
+      selectSection7('id');
     }
   };
 

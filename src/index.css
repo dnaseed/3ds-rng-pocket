@@ -2,13 +2,13 @@
 
 @layer components {
   /* Keep the scrollable form above both bottom bars, including the device inset. */
-  .app-shell:has(.search-action-bar) {
+  .app-shell:has(.search-action-bar:not(.gen6-inactive *)) {
     --nav-height: calc(3.75rem + 1px + env(safe-area-inset-bottom, 0px));
     height: 100dvh;
     padding-bottom: calc(var(--nav-height) + 4rem);
   }
 
-  .app-shell:has(.search-action-bar) > main {
+  .app-shell:has(.search-action-bar:not(.gen6-inactive *)) > main {
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 0.75rem;
@@ -75,16 +75,16 @@ input[type='number'] {
     scrollbar-width: thin;
   }
 
-  .app-shell:has(.search-action-bar) {
+  .app-shell:has(.search-action-bar:not(.gen6-inactive *)) {
     --nav-height: 0px;
   }
 
-  .app-shell:has(.search-workspace, .seed-workspace) {
+  .app-shell:has(.search-workspace:not(.gen6-inactive *), .seed-workspace) {
     height: 100dvh;
     padding-bottom: 0;
   }
 
-  .app-shell:has(.search-workspace, .seed-workspace) > main {
+  .app-shell:has(.search-workspace:not(.gen6-inactive *), .seed-workspace) > main {
     max-width: 1440px;
     min-height: 0;
     overflow: hidden;

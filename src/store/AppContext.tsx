@@ -12,9 +12,9 @@ import {
 } from '../services/profileStorage';
 import { DEFAULT_SEED_API_BASE } from '../services/sfmtSeedApi';
 
-export type ActiveGen = 'home' | 'gen7' | 'gen6';
-export type AppTab = 'seed' | 'stationary' | 'wild' | 'egg' | 'more';
-export type MoreSection = 'event' | 'id' | 'profiles' | 'tools';
+import { useNavigation, type ActiveGen, type AppTab, type MoreSection, type NavigationSection, type SeedMode6 } from './navigation';
+export type { ActiveGen, AppTab, MoreSection } from './navigation';
+
 export type ClockVisualStyle = 'svg' | 'sprite';
 
 export interface AroundTargetJump {
@@ -85,7 +85,11 @@ interface AppContextValue {
   activeTab: AppTab;
   setActiveTab: (tab: AppTab) => void;
   moreSection: MoreSection;
-  setMoreSection: (sec: MoreSection) => void;
+  selectSection7: (section: NavigationSection) => void;
+  tab6: NavigationSection;
+  more6: MoreSection;
+  seedMode6: SeedMode6;
+  selectSection6: (section: NavigationSection, mode?: SeedMode6) => void;
 
   profileStore: ProfileStoreData;
   activeProfile: TrainerProfile;
@@ -123,9 +127,8 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<PersistedSettings>(() => loadSettings());
   const [profileStore, setProfileStore] = useState<ProfileStoreData>(() => loadProfileStore());
-  const [activeGen, setActiveGen] = useState<ActiveGen>('home');
-  const [activeTab, setActiveTab] = useState<AppTab>('seed');
-  const [moreSection, setMoreSection] = useState<MoreSection>('event');
+  const navigation = useNavigation();
+  const { selectSection7 } = navigation;
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
@@ -254,15 +257,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const triggerAroundTarget = useCallback(
     (tab: 'stationary' | 'wild' | 'event', targetFrameVal: number) => {
       setTargetFrame(targetFrameVal);
-      if (tab === 'event') {
-        setMoreSection('event');
-        setActiveTab('more');
-      } else {
-        setActiveTab(tab);
-      }
+      selectSection7(tab);
       setAroundJump({ tab, targetFrame: targetFrameVal, nonce: Date.now() });
     },
-    [setTargetFrame],
+    [setTargetFrame, selectSection7],
   );
 
   const clearAroundJump = useCallback(() => setAroundJump(null), []);
@@ -270,15 +268,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const triggerTimelineFrom = useCallback(
     (tab: 'stationary' | 'wild' | 'event', startFrameVal: number) => {
       setStartFrame(startFrameVal);
-      if (tab === 'event') {
-        setMoreSection('event');
-        setActiveTab('more');
-      } else {
-        setActiveTab(tab);
-      }
+      selectSection7(tab);
       setTimelineJump({ tab, startFrame: startFrameVal, nonce: Date.now() });
     },
-    [setStartFrame],
+    [setStartFrame, selectSection7],
   );
 
   const clearTimelineJump = useCallback(() => setTimelineJump(null), []);
@@ -298,12 +291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     apiBaseUrl: settings.apiBaseUrl,
     setApiBaseUrl,
     isOnline,
-    activeGen,
-    setActiveGen,
-    activeTab,
-    setActiveTab,
-    moreSection,
-    setMoreSection,
+    ...navigation,
     profileStore,
     activeProfile,
     isUltra,

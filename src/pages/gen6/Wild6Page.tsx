@@ -1,3 +1,4 @@
+import { aroundTargetRange6, isWildCalibrationCompatible6, wildCalibrationMethod6 } from './searchOptions6';
 import { Clock, Crosshair, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { wildAreas6, wildGroup6, wildLocation6, wildSlots6, type WildMethod6 } from '../../data/wild6Catalog';
@@ -61,17 +62,29 @@ export function Wild6Page({ profile, session, updateSession, onOpenTimeline }: {
   const areas = wildAreas6(game, q.method);
   const area = areas[q.area];
   const slots = area ? wildSlots6(game, q.method, area, q.rod) : [];
-  const calibration = session.timeline?.oras === oras ? session.timeline : undefined;
+  const savedCalibration = session.timeline;
+  const calibration = savedCalibration && isWildCalibrationCompatible6(savedCalibration, q.method, oras)
+    ? savedCalibration : undefined;
+  const calibrationLabel = savedCalibration ? t('gen6.timelineMethods.' + savedCalibration.method) : '';
+  const calibrationMessage = savedCalibration
+    ? t('gen6.wildCalibrationMismatch', {
+      saved: calibrationLabel,
+      family: savedCalibration.oras ? 'ORAS' : 'XY',
+      expected: t('gen6.timelineMethods.' + wildCalibrationMethod6(q.method)),
+      game: oras ? 'ORAS' : 'XY',
+    })
+    : t('gen6.timelineNeedsSetup');
 
   async function search(overrideMode?: SearchMode6, overrideTarget?: number) {
     setError('');
     const activeMode = overrideMode ?? mode;
     const targetFrame = overrideTarget ?? session.targetFrame;
-    const minFrame = activeMode === 'aroundTarget' ? Math.max(0, targetFrame - 100) : session.startFrame;
-    const maxFrame = activeMode === 'aroundTarget' ? targetFrame + 100 : session.endFrame;
+    const { minFrame, maxFrame } = activeMode === 'aroundTarget'
+      ? aroundTargetRange6(targetFrame)
+      : { minFrame: session.startFrame, maxFrame: session.endFrame };
 
     if (activeMode === 'timeline' && !calibration) {
-      setError(t('gen6.timelineNeedsSetup'));
+      setError(calibrationMessage);
       return;
     }
     if (minFrame > maxFrame) {
@@ -92,6 +105,7 @@ export function Wild6Page({ profile, session, updateSession, onOpenTimeline }: {
         ...output, startFrame: minFrame, targetFrame,
         summary: [
           game, names[q.method], area && wildLocation6(area), modeText,
+          activeMode === 'timeline' && t('gen6.activeCalibration', { method: calibrationLabel }),
           session.initialSeedHex, `#${minFrame}–#${maxFrame}`,
           countActiveFilters(filter) ? `${t('search.filters')} ${countActiveFilters(filter)}` : '',
         ].filter(Boolean).join(' · '),
@@ -102,7 +116,7 @@ export function Wild6Page({ profile, session, updateSession, onOpenTimeline }: {
   return <>
     <SearchWorkspace collapsible={!!result}
       actions={<SearchActionBar activeFilters={countActiveFilters(filter)} onOpenFilters={() => setOpen(true)} isRunning={worker.isRunning} progress={worker.progress} onSearch={() => void search()} onAbort={worker.abort} />}
-      results={<Results6 result={result} error={error || worker.error}
+      results={<Results6 result={result} error={error || (worker.error ? t(worker.error === 'Invalid MT range' ? 'gen6.invalidRange' : 'misc.searchError') : null)}
         headerExtra={<button type="button" aria-pressed={showStats} onClick={() => setShowStats(value => !value)}
           className={`min-h-10 rounded-xl border px-2.5 text-xs font-semibold transition ${showStats
             ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
@@ -260,25 +274,21 @@ export function Wild6Page({ profile, session, updateSession, onOpenTimeline }: {
           ))}
         </div>
 
+        {mode === 'timeline' && calibration && (
+          <p className="text-xs text-zinc-300">{t('gen6.activeCalibration', { method: calibrationLabel })}</p>
+        )}
         {mode === 'timeline' && !calibration && (
           <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-200">
-            <p>{t('gen6.timelineNeedsSetup')}</p>
-            {onOpenTimeline && (
-              <button type="button" onClick={onOpenTimeline}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-zinc-950 px-2.5 text-xs font-semibold text-amber-300">
-                <Clock size={13} aria-hidden="true" />
-                <span>{t('gen6.tinyTimelineTool')}</span>
-              </button>
-            )}
+            <p>{calibrationMessage}</p>
           </div>
         )}
 
         {mode === 'aroundTarget' ? (
           <div className="space-y-1.5">
-            <NumberField label={t('search.targetFrame')} value={session.targetFrame} min={100}
+            <NumberField label={t('search.targetFrame')} value={session.targetFrame} min={0}
               onChange={targetFrame => updateSession({ targetFrame })} />
             <p className="text-[11px] font-mono text-zinc-400">
-              #{Math.max(0, session.targetFrame - 100)} – #{session.targetFrame + 100}
+              #{aroundTargetRange6(session.targetFrame).minFrame} – #{aroundTargetRange6(session.targetFrame).maxFrame}
             </p>
           </div>
         ) : (

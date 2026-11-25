@@ -1,3 +1,4 @@
+import { aroundTargetRange6 } from './searchOptions6';
 import { Clock, Crosshair, Settings2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { countActiveFilters, FilterBottomSheet } from '../../components/filters/FilterBottomSheet';
@@ -117,8 +118,9 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
     setValidationError('');
     const activeMode = overrideMode ?? effectiveMode;
     const targetFrame = overrideTarget ?? session.targetFrame;
-    const minFrame = activeMode === 'aroundTarget' ? Math.max(0, targetFrame - 100) : session.startFrame;
-    const maxFrame = activeMode === 'aroundTarget' ? targetFrame + 100 : session.endFrame;
+    const { minFrame, maxFrame } = activeMode === 'aroundTarget'
+      ? aroundTargetRange6(targetFrame)
+      : { minFrame: session.startFrame, maxFrame: session.endFrame };
 
     if (activeMode === 'timeline' && !compatible) {
       setValidationError('gen6.timelineNeedsSetup');
@@ -339,22 +341,15 @@ function StationaryWorkspace({ profile, session, updateSession, game, setTranspo
         {effectiveMode === 'timeline' && !compatible && (
           <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-200">
             <p>{t('gen6.timelineNeedsSetup')}</p>
-            {onOpenTimeline && (
-              <button type="button" onClick={onOpenTimeline}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-zinc-950 px-2.5 text-xs font-semibold text-amber-300">
-                <Clock size={13} aria-hidden="true" />
-                <span>{t('gen6.tinyTimelineTool')}</span>
-              </button>
-            )}
           </div>
         )}
 
         {effectiveMode === 'aroundTarget' ? (
           <div className="space-y-1.5">
-            <NumberField label={t('search.targetFrame')} value={session.targetFrame} min={100}
+            <NumberField label={t('search.targetFrame')} value={session.targetFrame} min={0}
               onChange={targetFrame => updateSession({ targetFrame })} />
             <p className="text-[11px] font-mono text-zinc-400">
-              #{Math.max(0, session.targetFrame - 100)} – #{session.targetFrame + 100}
+              #{aroundTargetRange6(session.targetFrame).minFrame} – #{aroundTargetRange6(session.targetFrame).maxFrame}
             </p>
           </div>
         ) : (

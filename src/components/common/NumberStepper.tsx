@@ -1,3 +1,4 @@
+import { useApp } from '../../store/AppContext';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
@@ -20,6 +21,7 @@ export function NumberStepper({
   step = 1,
   disabled = false,
 }: NumberStepperProps) {
+  const { i18n } = useApp();
   const [draft, setDraft] = useState(() => String(value));
   const [focused, setFocused] = useState(false);
   const inputId = useId();
@@ -61,7 +63,7 @@ export function NumberStepper({
             setDraft(String(next));
           }}
           className="w-11 h-full flex items-center justify-center text-zinc-300 hover:bg-zinc-800 disabled:opacity-35 active:bg-zinc-700 transition shrink-0"
-          aria-label="Decrease"
+          aria-label={i18n.t('app.decrease')}
         >
           <Minus className="w-4 h-4" />
         </button>
@@ -106,7 +108,7 @@ export function NumberStepper({
             setDraft(String(next));
           }}
           className="w-11 h-full flex items-center justify-center text-zinc-300 hover:bg-zinc-800 disabled:opacity-35 active:bg-zinc-700 transition shrink-0"
-          aria-label="Increase"
+          aria-label={i18n.t('app.increase')}
         >
           <Plus className="w-4 h-4" />
         </button>

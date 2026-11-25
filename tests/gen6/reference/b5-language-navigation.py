@@ -63,7 +63,7 @@ def run(browser, language, width, height):
             result_count(count)
 
     def frame(label, value):
-        page.get_by_label(t(f"search.{label}Frame"), exact=True).fill(str(value))
+        page.get_by_label(t(f"search.{label}Frame"), exact=True).filter(visible=True).fill(str(value))
 
     def detail(index, text):
         row = button(re.compile(rf"^#{index}\b")).first
@@ -143,11 +143,11 @@ def run(browser, language, width, height):
     activate(button(t("app.search")))
     expect(button(re.compile(r"^Stop"))).to_be_visible()
     activate(page.locator("header [aria-haspopup=dialog]").first)
-    activate(button(t("home.backToMenu")))
+    activate(page.get_by_role("dialog").get_by_role("button", name=t("home.backToMenu"), exact=True))
     open_gen(7)
     page.wait_for_function("previous => testTerminatedWorkers > previous", arg=prior)
     activate(page.locator("header").get_by_role("button", name=re.compile(r"^US\b")))
-    activate(button(t("home.backToMenu")))
+    activate(page.get_by_role("dialog").get_by_role("button", name=t("home.backToMenu"), exact=True))
     open_gen(6)
     expect(page.get_by_label(t("gen6.mtSeed"), exact=True)).to_have_value("35B19AF2")
     page.get_by_label(t("gen6.mtSeed"), exact=True).fill("00000000")

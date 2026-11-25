@@ -120,11 +120,12 @@ export function ProfilesPage() {
       {editing && (
         <div className="profile-editor rounded-2xl bg-zinc-900 border border-amber-500/40 p-4 space-y-3">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-zinc-400">
+            <label htmlFor="gen7-profile-name" className="block text-xs font-medium text-zinc-400">
               {i18n.t('profiles.name')}
             </label>
             <input
               type="text"
+              id="gen7-profile-name"
               value={editing.name}
               onChange={(e) => setEditing({ ...editing, name: e.target.value })}
               className="w-full h-11 rounded-xl bg-zinc-950 border border-zinc-700 px-3 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
