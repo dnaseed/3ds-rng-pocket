@@ -1,7 +1,8 @@
+import { ScanText } from 'lucide-react';
 import { getHiddenPowerValue, getPSV, getPRV } from '../../engine/core/pokemonMath';
 import { FrameIvValues, FrameShinyBadge } from '../../components/results/FrameValues';
 import { CopyResultValue, PokemonDetailCard6 } from './Results6';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createDefaultRngFilter } from '../../engine/core/filters';
 import { eggFromKey6, type Egg6Options, type EggKey6, type EggRow6 } from '../../engine/gen6/egg6';
 import { parseHex32, toHex32 } from '../../engine/math/uint';
@@ -12,7 +13,7 @@ import { FrameSearch6, range6, type Page6Props } from './FrameSearch6';
 import { Check6, Pair6, Select6, Text6 } from './ToolFields6';
 import { NumberField } from './fields';
 
-export function Egg6Page({profile,session,updateSession}:Page6Props) {
+export function Egg6Page({profile,session,updateSession,onOpenScan}:Page6Props & { onOpenScan?: () => void }) {
   const {i18n,lang}=useApp(), it=lang==='it';
   const ids=computeTsvTrv(profile.tid,profile.sid);
   const [q,setQ]=useState<Egg6Options>({male:Array(6).fill(31),female:Array(6).fill(31),maleItem:0,femaleItem:0,ability:0,ratio:127,nido:false,masuda:false,
@@ -20,6 +21,10 @@ export function Egg6Page({profile,session,updateSession}:Page6Props) {
   const update=(patch:Partial<Egg6Options>)=>setQ(prev=>({...prev,...patch}));
   const [delay,setDelay]=useState(16);
   const [key,setKey]=useState<string[]>(session.eggKey?.map(toHex32)??['','']);
+  const eggKeyStr = session.eggKey ? session.eggKey.map(toHex32).join(',') : '';
+  useEffect(() => {
+    if (eggKeyStr) setKey(eggKeyStr.split(','));
+  }, [eggKeyStr]);
   const [others,setOthers]=useState('');
   const words=key.map(parseHex32);
   const current=words.every(w=>w!==null)?eggFromKey6(q,words as EggKey6):null;
@@ -77,6 +82,23 @@ export function Egg6Page({profile,session,updateSession}:Page6Props) {
         <CopyResultValue value={r.key.map(toHex32).join(',')} label={i18n.t('gen6.copyKey')} />
       </div>
     </>}>
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs font-semibold text-zinc-300">Egg Key</span>
+      {onOpenScan && (
+        <button
+          type="button"
+          onClick={onOpenScan}
+          aria-label={it ? 'Scansiona overlay' : 'Scan overlay'}
+          className="min-h-11 px-2.5 -my-1.5 shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/35 text-xs font-semibold text-amber-200 hover:border-amber-400/60 active:scale-95 transition"
+        >
+          <ScanText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="hidden min-[400px]:inline">
+            {it ? 'Scansiona overlay' : 'Scan overlay'}
+          </span>
+          <span className="min-[400px]:hidden">Overlay</span>
+        </button>
+      )}
+    </div>
     <Pair6>{key.map((v,i)=><Text6 key={i} label={'Key'+i} value={v} limit={8} change={s=>{const next=key.map((k,j)=>j===i?s.toUpperCase():k);setKey(next);
       const parsed=next.map(parseHex32);if(parsed.every(w=>w!==null))updateSession({eggKey:parsed as EggKey6});}}/>)}</Pair6>
     {current&&<section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">

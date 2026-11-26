@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { ScanText } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { SearchWorkspace } from '../../components/layout/SearchWorkspace';
 import { SearchActionBar } from '../../components/results/SearchActionBar';
 import type { IdResult6 } from '../../engine/core/types';
@@ -12,13 +13,19 @@ import { cardClass, fieldClass, labelClass, NumberField } from './fields';
 import { Check6 } from './ToolFields6';
 import { CopyResultValue, Details6, Results6, rowButtonClass, type Results6Data } from './Results6';
 
-export function Id6Page({ scope, session, updateSession }: {
+export function Id6Page({ scope, session, updateSession, onOpenScan }: {
   scope: string;
   session: Session6;
   updateSession: (next: Partial<Session6>) => void;
+  onOpenScan?: () => void;
 }) {
-  const { i18n: { t } } = useApp();
+  const { lang, i18n: { t } } = useApp();
+  const it = lang === 'it';
   const [words, setWords] = useState(() => session.idState ? formatEggSeedStr(session.idState).split(',') : ['', '', '', '']);
+  const idStateStr = session.idState ? formatEggSeedStr(session.idState) : '';
+  useEffect(() => {
+    if (idStateStr) setWords(idStateStr.split(','));
+  }, [idStateStr]);
   const [idType, setIdType] = useState<0 | 1 | 2>(0);
   const [idText, setIdText] = useState('');
   const [tsvText, setTsvText] = useState('');
@@ -75,7 +82,23 @@ export function Id6Page({ scope, session, updateSession }: {
           <span className="block font-mono text-xs text-zinc-400">TSV {String(row.tsv).padStart(4, '0')} · TRV {row.trv.toString(16).toUpperCase()}</span>
         </button>} />}>
       <section className={cardClass}>
-        <h1 className="text-base font-bold">ID RNG</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-base font-bold">ID RNG</h1>
+          {onOpenScan && (
+            <button
+              type="button"
+              onClick={onOpenScan}
+              aria-label={it ? 'Scansiona overlay' : 'Scan overlay'}
+              className="min-h-11 px-2.5 -my-1.5 shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/35 text-xs font-semibold text-amber-200 hover:border-amber-400/60 active:scale-95 transition"
+            >
+              <ScanText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden min-[400px]:inline">
+                {it ? 'Scansiona overlay' : 'Scan overlay'}
+              </span>
+              <span className="min-[400px]:hidden">Overlay</span>
+            </button>
+          )}
+        </div>
         <fieldset className="space-y-2">
           <legend className="text-sm font-semibold">{t('gen6.tinyState')}</legend>
           <p className="text-xs text-zinc-400">{t('gen6.tinyHelp')}</p>

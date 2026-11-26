@@ -1,11 +1,20 @@
 import workerPath from 'tesseract.js/dist/worker.min.js?url';
 import corePath from 'tesseract.js-core/tesseract-core-lstm.wasm.js?url';
 import modelPath from '../../scripts/ocr/eng.traineddata.gz?url';
-import { parseOverlayWithStates, type OverlayFields } from './overlayParser';
+import { verifyOrFixSeedWithMt, verifyOrFixTinyMt } from './gen6Verify';
 import {
+  parseOverlay6WithStates,
+  parseOverlayWithStates,
+  type OverlayFields,
+  type OverlayFields6,
+} from './overlayParser';
+import {
+  readDaycare6FromAnchor,
   readDaycareFromAnchor,
+  readRng6FromAnchor,
   readRngFromAnchor,
   type Region,
+  type Rng6NccResult,
   type RngNccResult,
 } from './pokeReaderNcc';
 import { buildConfusionRanked, verifyOrFixSeedWithSfmt } from './sfmtVerify';
@@ -23,6 +32,19 @@ export interface ScanPhotoResult {
   raw: string;
 }
 
+export interface ScanPhoto6Result {
+  fields: OverlayFields6;
+  mtVerified: boolean;
+  mtVerifyLevel: VerifyLevel;
+  mtMatchedNibbles: number;
+  tinyVerified: boolean;
+  tinyVerifyLevel: VerifyLevel;
+  uncertain: Partial<Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0' | 'egg1' | 'egg0', number[]>>;
+  crops: Partial<Record<keyof OverlayFields6, string>>;
+  previewUrl: string;
+  raw: string;
+}
+
 /**
  * Warm Workbox runtime cache (`pocket-ocr-v1`) for OCR assets without spawning a
  * WASM worker in memory while the user is taking a photo.
@@ -31,13 +53,14 @@ export async function ensureOcrCached(): Promise<void> {
   const urls = [workerPath, corePath, modelPath].map(
     (p) => new URL(p, document.baseURI).href,
   );
-  await Promise.all(
-    urls.map(async (href) => {
+  await Promise.all([
+    import('tesseract.js'),
+    ...urls.map(async (href) => {
       const res = await fetch(href);
       if (!res.ok) throw new Error('OCR asset unavailable');
       await res.arrayBuffer();
     }),
-  );
+  ]);
 }
 
 export async function loadOcr(progress: (value: number) => void) {
@@ -437,6 +460,438 @@ export async function scanPhoto(
       verified,
       verifyLevel,
       matchedNibbles,
+      uncertain,
+      crops,
+      previewUrl,
+      raw: texts.join('\n——\n'),
+    };
+  } finally {
+    rawCanvas.width = 0;
+    rawCanvas.height = 0;
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+export async function scanPhoto6(
+  worker: Awaited<ReturnType<typeof loadOcr>>,
+  url: string,
+): Promise<ScanPhoto6Result> {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  const { PSM } = await import('tesseract.js');
+
+  const rawScale = Math.min(1, 1500 / Math.max(image.width, image.height));
+  const rawCanvas = document.createElement('canvas');
+  rawCanvas.width = Math.max(1, Math.round(image.width * rawScale));
+  rawCanvas.height = Math.max(1, Math.round(image.height * rawScale));
+  const rawCtx = rawCanvas.getContext('2d', { willReadFrequently: true })!;
+  rawCtx.drawImage(image, 0, 0, rawCanvas.width, rawCanvas.height);
+  const rawImage = rawCtx.getImageData(0, 0, rawCanvas.width, rawCanvas.height);
+
+  const previewScale = Math.min(1, 900 / Math.max(rawCanvas.width, rawCanvas.height));
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.width = Math.max(1, Math.round(rawCanvas.width * previewScale));
+  previewCanvas.height = Math.max(1, Math.round(rawCanvas.height * previewScale));
+  previewCanvas
+    .getContext('2d')!
+    .drawImage(rawCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+  const previewUrl = previewCanvas.toDataURL('image/jpeg', 0.8);
+  previewCanvas.width = 0;
+  previewCanvas.height = 0;
+
+  function cropDataUrl(region: Region): string {
+    const padX = Math.max(2, region.width * 0.08);
+    const padY = Math.max(2, region.height * 0.25);
+    const sx = Math.max(0, Math.floor(region.x - padX));
+    const sy = Math.max(0, Math.floor(region.y - padY));
+    const sw = Math.min(rawCanvas.width - sx, Math.ceil(region.width + 2 * padX));
+    const sh = Math.min(rawCanvas.height - sy, Math.ceil(region.height + 2 * padY));
+    if (sw <= 0 || sh <= 0) return '';
+    const out = document.createElement('canvas');
+    out.width = sw;
+    out.height = sh;
+    out.getContext('2d')!.drawImage(rawCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    const dataUrl = out.toDataURL('image/png');
+    out.width = 0;
+    out.height = 0;
+    return dataUrl;
+  }
+
+  const fields: OverlayFields6 = {};
+  const crops: ScanPhoto6Result['crops'] = {};
+  let uncertain: ScanPhoto6Result['uncertain'] = {};
+  const texts: string[] = [];
+  let currState: string | undefined;
+  let tinyU32: string | undefined;
+  let tinyAdvances: string | undefined;
+  let tinySeed: [string, string, string, string] | undefined;
+  let mtVerified = false;
+  let mtVerifyLevel: VerifyLevel = 'none';
+  let mtMatchedNibbles = 0;
+  let tinyVerified = false;
+  let tinyVerifyLevel: VerifyLevel = 'none';
+  let bestNccRng: Rng6NccResult | null = null;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const isPortrait = image.height > image.width;
+
+  try {
+    for (const pass of ['smooth', 'focused', 'full', 'adaptive'] as const) {
+      const focused = pass === 'focused' || pass === 'adaptive';
+      const srcX = 0;
+      const srcY = focused && isPortrait ? image.height * 0.16 : 0;
+      const srcW = focused ? image.width * (isPortrait ? 0.78 : 0.62) : image.width;
+      const srcH = focused ? image.height * (isPortrait ? 0.66 : 0.74) : image.height;
+      const stretch = focused ? 1.35 : 1;
+      const scale = 1500 / Math.max(srcW, srcH * stretch);
+      canvas.width = Math.round(srcW * scale);
+      canvas.height = Math.round(srcH * scale * stretch);
+      ctx.filter = focused
+        ? 'blur(0.6px)'
+        : pass === 'smooth'
+          ? 'blur(0.25px)'
+          : 'none';
+      ctx.drawImage(image, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+      ctx.filter = 'none';
+
+      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const ink = new Uint8Array(canvas.width * canvas.height);
+      const histogram = new Uint32Array(256);
+      for (let p = 0; p < ink.length; p++) {
+        const i = p * 4;
+        ink[p] = Math.min(frame.data[i]!, frame.data[i + 1]!, frame.data[i + 2]!);
+        histogram[ink[p]!]!++;
+      }
+      let threshold = 0;
+      let total = 0;
+      while (threshold < 255 && (total += histogram[threshold]!) < ink.length * 0.88) {
+        threshold++;
+      }
+      for (let p = 0; p < ink.length; p++) {
+        let cutoff = focused
+          ? Math.max(160, Math.min(205, threshold))
+          : pass === 'full'
+            ? 185
+            : Math.max(173, Math.min(195, threshold));
+        if (pass === 'adaptive') {
+          const x = p % canvas.width;
+          const y = Math.floor(p / canvas.width);
+          let sum = 0;
+          for (const dy of [-12, 0, 12]) {
+            for (const dx of [-12, 0, 12]) {
+              sum +=
+                ink[
+                  Math.max(0, Math.min(canvas.height - 1, y + dy)) * canvas.width +
+                    Math.max(0, Math.min(canvas.width - 1, x + dx))
+                ]!;
+            }
+          }
+          cutoff = sum / 9 + 28;
+        }
+        const v = 128 + (cutoff - ink[p]!) * 5;
+        frame.data[p * 4] = frame.data[p * 4 + 1] = frame.data[p * 4 + 2] = v;
+      }
+      ctx.putImageData(frame, 0, 0);
+
+      await worker.setParameters({
+        tessedit_pageseg_mode: pass === 'adaptive' ? PSM.SINGLE_BLOCK : PSM.SPARSE_TEXT,
+      });
+      const { data } = await worker.recognize(canvas, {}, { blocks: true });
+      texts.push(data.text);
+
+      const parsed = parseOverlay6WithStates(data.text);
+      for (const key of Object.keys(parsed.fields) as (keyof OverlayFields6)[]) {
+        fields[key] ??= parsed.fields[key];
+      }
+      currState ??= parsed.currState;
+      tinyU32 ??= parsed.tinyU32;
+      tinyAdvances ??= parsed.tinyAdvances;
+      tinySeed ??= parsed.tinySeed;
+
+      const toRawX = (px: number) =>
+        ((srcX + (px * srcW) / canvas.width) * rawCanvas.width) / image.width;
+      const toRawY = (py: number) =>
+        ((srcY + (py * srcH) / canvas.height) * rawCanvas.height) / image.height;
+      const toRawBox = (b: { x0: number; y0: number; x1: number; y1: number }) => ({
+        x: toRawX(b.x0),
+        y: toRawY(b.y0),
+        width: ((b.x1 - b.x0) * srcW * rawCanvas.width) / (canvas.width * image.width),
+        height: ((b.y1 - b.y0) * srcH * rawCanvas.height) / (canvas.height * image.height),
+      });
+
+      const words =
+        data.blocks?.flatMap((b) =>
+          b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)),
+        ) ?? [];
+
+      // 1. Try hybrid NCC Gen 6 RNG localization from Init / seed: / state: / Advances:
+      const rngGuesses: Region[] = [];
+      for (const w of words) {
+        const box = toRawBox(w.bbox);
+        if (/^init$/i.test(w.text)) {
+          const pitch = box.width / 3.9;
+          rngGuesses.push({
+            x: box.x + 11 * pitch,
+            y: box.y - 0.05 * pitch,
+            width: 8 * pitch,
+            height: pitch * 1.05,
+          });
+        } else if (/^seed[:;!]?$/i.test(w.text)) {
+          const pitch = box.width / (/[:;!]/.test(w.text) ? 4.65 : 3.95);
+          rngGuesses.push({
+            x: box.x + 6 * pitch,
+            y: box.y - 0.05 * pitch,
+            width: 8 * pitch,
+            height: pitch * 1.05,
+          });
+        } else if (/^stat[eot][\[({tf]?[:;]?$/i.test(w.text)) {
+          const pitch = box.width / 5.5;
+          rngGuesses.push({
+            x: box.x + 7 * pitch,
+            y: box.y - pitch * 1.48,
+            width: 8 * pitch,
+            height: pitch * 1.05,
+          });
+        } else if (/^advances[:;]?$/i.test(w.text)) {
+          const pitch = box.width / 8.3;
+          rngGuesses.push({
+            x: box.x + 10 * pitch,
+            y: box.y - 2 * pitch * 1.48,
+            width: 8 * pitch,
+            height: pitch * 1.05,
+          });
+        }
+      }
+
+      for (const guess of rngGuesses) {
+        const ncc = readRng6FromAnchor(rawImage, guess);
+        if (!ncc) continue;
+        if (!bestNccRng || (ncc.mtVerified && !bestNccRng.mtVerified) || (ncc.tinyVerified && !bestNccRng.tinyVerified)) {
+          bestNccRng = ncc;
+        }
+        if (ncc.mtVerified) {
+          fields.seed = ncc.seed;
+          if (/^\d+$/.test(ncc.frame)) fields.frame = ncc.frame;
+          crops.seed = cropDataUrl(ncc.seedCrop);
+          if (ncc.frameCrop) crops.frame = cropDataUrl(ncc.frameCrop);
+          mtVerified = true;
+          mtVerifyLevel = ncc.mtExact ? 'exact' : 'probable';
+          mtMatchedNibbles = ncc.mtMatchedNibbles;
+          if (ncc.tiny3 && ncc.tiny2 && ncc.tiny1 && ncc.tiny0) {
+            fields.tiny3 = ncc.tiny3;
+            fields.tiny2 = ncc.tiny2;
+            fields.tiny1 = ncc.tiny1;
+            fields.tiny0 = ncc.tiny0;
+            tinyVerified = ncc.tinyVerified;
+            tinyVerifyLevel = ncc.tinyExact ? 'exact' : ncc.tinyVerified ? 'probable' : 'none';
+            if (ncc.tinyCrops) {
+              crops.tiny3 = cropDataUrl(ncc.tinyCrops.tiny3);
+              crops.tiny2 = cropDataUrl(ncc.tinyCrops.tiny2);
+              crops.tiny1 = cropDataUrl(ncc.tinyCrops.tiny1);
+              crops.tiny0 = cropDataUrl(ncc.tinyCrops.tiny0);
+            }
+            if (ncc.tinyUncertain) {
+              uncertain = { ...uncertain, ...ncc.tinyUncertain };
+            }
+          }
+          break;
+        }
+      }
+      if (mtVerified) break;
+
+      // 2. Try hybrid NCC Gen 6 Daycare localization (Egg[1], Egg[0]).
+      const isMenuText = />\s*Daycare/i.test(data.text) || /Ver\s+0\./i.test(data.text);
+      const hasGen7Egg = /Egg\s*[\[(]?\s*[23]/i.test(data.text);
+      const hasDaycareSignal =
+        !isMenuText &&
+        !hasGen7Egg &&
+        /(?:Par[12elt]|Ready|Masuda|Egg\s*[\[(]?[01])/i.test(data.text);
+
+      if (hasDaycareSignal) {
+        const daycareGuesses: Region[] = [];
+        for (const w of words) {
+          let idx: number | null = null;
+          const m = /^(?:egg|ess|esa|esg|es[oa])[\[(\{ft]*([01])/i.exec(w.text);
+          if (m) idx = Number(m[1]);
+          else if (/^e[aegos]{2}[a-z\[({]*[i1l|!][\]}):;]*$/i.test(w.text)) idx = 1;
+          else if (/^e[aegos]{2}[a-z\[({]*[@0oO][i1l|\]}):;]*$/i.test(w.text)) idx = 0;
+          if (idx === null) continue;
+          const box = toRawBox(w.bbox);
+          const pitch = box.width / 6.5;
+          if (pitch < 3) continue;
+          const line = pitch * 1.52;
+          daycareGuesses.push({
+            x: box.x + 8 * pitch,
+            y: box.y - (1 - idx) * line,
+            width: 8 * pitch,
+            height: pitch * 1.05,
+          });
+        }
+
+        const heading = words.find((w) => /^unlock$/i.test(w.text));
+        const parent1 = words.find((w) => /^Par[1ilt][:;]?$/i.test(w.text));
+        const parent2 = words.find((w) => /^Par[2ezc][:;]?$/i.test(w.text));
+        let hBox = heading ? toRawBox(heading.bbox) : null;
+        const p1Box = parent1 ? toRawBox(parent1.bbox) : null;
+        const p2Box = parent2 ? toRawBox(parent2.bbox) : null;
+        if (!hBox && p1Box && p2Box && p2Box.y - p1Box.y > 4) {
+          const step = p2Box.y - p1Box.y;
+          hBox = {
+            x: p1Box.x,
+            y: p1Box.y - 3 * step,
+            width: p1Box.width * 1.25,
+            height: p1Box.height,
+          };
+        }
+        const refParent = p1Box ?? p2Box;
+        if (hBox && refParent) {
+          const div = p1Box ? 2 : 3;
+          const pitchFromHeading = hBox.width / 5.85;
+          const lineFromSpacing = (refParent.y - hBox.y) / div;
+          const pitch =
+            Math.abs(lineFromSpacing / 1.5 - pitchFromHeading) / pitchFromHeading < 0.18
+              ? (pitchFromHeading + lineFromSpacing / 1.5) / 2
+              : pitchFromHeading;
+          const line = pitch * 1.52;
+          if (pitch > 3 && Math.abs(refParent.x - hBox.x) < pitch * 1.8) {
+            for (const rowOffset of [4.6, 5.0, 5.4]) {
+              daycareGuesses.push({
+                x: hBox.x + 7.85 * pitch,
+                y: hBox.y + rowOffset * line,
+                width: 8 * pitch,
+                height: pitch * 1.05,
+              });
+            }
+          }
+        }
+        if (p2Box) {
+          const pitch = p2Box.width / 4.8;
+          const line = pitch * 1.52;
+          if (pitch > 3) {
+            for (const rowOffset of [1.8, 2.0, 2.2]) {
+              daycareGuesses.push({
+                x: p2Box.x + 8 * pitch,
+                y: p2Box.y + rowOffset * line,
+                width: 8 * pitch,
+                height: pitch * 1.05,
+              });
+            }
+          }
+        } else if (p1Box) {
+          const pitch = p1Box.width / 4.8;
+          const line = pitch * 1.52;
+          if (pitch > 3) {
+            for (const rowOffset of [2.8, 3.0, 3.2]) {
+              daycareGuesses.push({
+                x: p1Box.x + 8 * pitch,
+                y: p1Box.y + rowOffset * line,
+                width: 8 * pitch,
+                height: pitch * 1.05,
+              });
+            }
+          }
+        }
+
+        const masuda = words.find((w) => /^masuda/i.test(w.text));
+        const topBound = p1Box?.y ?? p2Box?.y ?? (hBox ? hBox.y + hBox.height * 3 : 0);
+        const bottomBound = masuda ? toRawBox(masuda.bbox).y : rawCanvas.height;
+        if (topBound > 0) {
+          for (const w of words) {
+            const clean = w.text.replace(/[^0-9A-Za-z@]/g, '');
+            if (clean.length < 7 || clean.length > 9) continue;
+            const wb = toRawBox(w.bbox);
+            if (wb.y <= topBound || wb.y >= bottomBound) continue;
+            const wp = wb.width / clean.length;
+            if (wp < 3) continue;
+            const wl = wp * 1.52;
+            for (const idxFromTop of [0, 1]) {
+              daycareGuesses.push({
+                x: wb.x,
+                y: wb.y - idxFromTop * wl,
+                width: 8 * wp,
+                height: wp * 1.05,
+              });
+            }
+          }
+        }
+
+        let bestDaycare: ReturnType<typeof readDaycare6FromAnchor> = null;
+        for (const guess of daycareGuesses) {
+          const dc = readDaycare6FromAnchor(rawImage, guess);
+          if (!dc) continue;
+          if (!bestDaycare || dc.quality > bestDaycare.quality) bestDaycare = dc;
+        }
+        if (bestDaycare && /^[0-9A-F]{8}$/.test(bestDaycare.egg1) && /^[0-9A-F]{8}$/.test(bestDaycare.egg0)) {
+          fields.egg1 = bestDaycare.egg1;
+          fields.egg0 = bestDaycare.egg0;
+          uncertain = bestDaycare.uncertain;
+          crops.egg1 = cropDataUrl(bestDaycare.crops.egg1);
+          crops.egg0 = cropDataUrl(bestDaycare.crops.egg0);
+          break;
+        }
+      }
+      if (fields.egg1 && fields.egg0) break;
+    }
+
+    if (!mtVerified) {
+      if (bestNccRng) {
+        if (/^[0-9A-F]{8}$/.test(bestNccRng.seed)) fields.seed = bestNccRng.seed;
+        if (/^\d+$/.test(bestNccRng.frame)) fields.frame ??= bestNccRng.frame;
+        crops.seed ??= cropDataUrl(bestNccRng.seedCrop);
+        if (bestNccRng.frameCrop) crops.frame ??= cropDataUrl(bestNccRng.frameCrop);
+      }
+
+      if (fields.seed && /^[0-9A-F]{8}$/.test(fields.seed) && currState) {
+        const adv = fields.frame && /^\d+$/.test(fields.frame) ? Number(fields.frame) : -1;
+        if (adv >= 0) {
+          const res = verifyOrFixSeedWithMt(buildConfusionRanked(fields.seed), currState, adv, [], 1024);
+          if (res.verified) {
+            fields.seed = res.seed;
+            fields.frame = res.frame;
+            mtVerified = true;
+            mtVerifyLevel = res.exact ? 'exact' : 'probable';
+            mtMatchedNibbles = res.matchedNibbles;
+          }
+        }
+      }
+    }
+
+    if (
+      !tinyVerified &&
+      tinyU32 &&
+      tinySeed &&
+      fields.tiny3 &&
+      fields.tiny2 &&
+      fields.tiny1 &&
+      fields.tiny0
+    ) {
+      const advCands = tinyAdvances && /^\d+$/.test(tinyAdvances) ? [Number(tinyAdvances)] : [];
+      const tinyRes = verifyOrFixTinyMt(
+        buildConfusionRanked(tinyU32),
+        tinySeed,
+        [fields.tiny3, fields.tiny2, fields.tiny1, fields.tiny0],
+        advCands,
+      );
+      if (tinyRes?.verified) {
+        fields.tiny3 = tinyRes.tiny3;
+        fields.tiny2 = tinyRes.tiny2;
+        fields.tiny1 = tinyRes.tiny1;
+        fields.tiny0 = tinyRes.tiny0;
+        tinyVerified = true;
+        tinyVerifyLevel = tinyRes.exact ? 'exact' : 'probable';
+      }
+    }
+
+    return {
+      fields,
+      mtVerified,
+      mtVerifyLevel,
+      mtMatchedNibbles,
+      tinyVerified,
+      tinyVerifyLevel,
       uncertain,
       crops,
       previewUrl,

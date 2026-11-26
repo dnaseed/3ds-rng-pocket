@@ -1,4 +1,5 @@
 import atlas from './pokeReaderGlyphs.json';
+import { verifyOrFixSeedWithMt, verifyOrFixTinyMt } from './gen6Verify';
 import { verifyOrFixSeedWithSfmt, type RankedChar } from './sfmtVerify';
 
 export interface Region {
@@ -142,6 +143,7 @@ function fitOrigin(
   initial: Region,
   label: string,
   labelCol: number,
+  sampleRows = 3,
 ): { origin: Region; pitch: number; lineHeight: number; slope: number; quality: number } {
   const nominal = initial.width / 8;
   let best = -Infinity;
@@ -230,7 +232,7 @@ function fitOrigin(
           0,
         ) / label.length;
       let rowsScore = 0;
-      for (const lineIdx of [0, 1, 2]) {
+      for (let lineIdx = 0; lineIdx < sampleRows; lineIdx++) {
         for (let i = 0; i < 8; i++) {
           rowsScore += recognizeCellRanked(
             image,
@@ -240,7 +242,7 @@ function fitOrigin(
         }
       }
       const vQuality =
-        labelScore * 0.6 + rowsScore / 24 - 0.08 * Math.abs(1 - vScale) - 0.02 * Math.abs(dy);
+        labelScore * 0.6 + rowsScore / (sampleRows * 8) - 0.08 * Math.abs(1 - vScale) - 0.02 * Math.abs(dy);
       if (vQuality > bestVQuality) {
         bestVQuality = vQuality;
         bestVScale = vScale;
@@ -416,6 +418,269 @@ export function readDaycareFromAnchor(
     crops: {
       egg3: e3.region,
       egg2: e2.region,
+      egg1: e1.region,
+      egg0: e0.region,
+    },
+  };
+}
+
+export interface Rng6NccResult {
+  seed: string;
+  mtVerified: boolean;
+  mtExact: boolean;
+  mtMatchedNibbles: number;
+  frame: string;
+  seedCrop: Region;
+  frameCrop?: Region;
+  tiny3?: string;
+  tiny2?: string;
+  tiny1?: string;
+  tiny0?: string;
+  tinyVerified: boolean;
+  tinyExact: boolean;
+  tinyCrops?: Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0', Region>;
+  tinyUncertain?: Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0', number[]>;
+}
+
+export interface Daycare6NccResult {
+  egg1: string;
+  egg0: string;
+  quality: number;
+  uncertain: Record<'egg1' | 'egg0', number[]>;
+  crops: Record<'egg1' | 'egg0', Region>;
+}
+
+function buildAdvCandidates(ranked: RankedChar[][], base: number): number[] {
+  const out: number[] = [];
+  if (Number.isInteger(base) && base >= 0) out.push(base);
+  const str = ranked.map((c) => c[0]?.glyph ?? '').join('');
+  if (!/^\d+$/.test(str)) return out;
+
+  // Test single-digit runner-up substitutions on low-margin digits (e.g. sprite overlap).
+  for (let i = 0; i < ranked.length; i++) {
+    const col = ranked[i]!;
+    if ((col[0]?.score ?? 0) >= 0.78 && (col[0]?.score ?? 0) - (col[1]?.score ?? 0) >= 0.12) {
+      continue;
+    }
+    for (const alt of col.slice(1, 3)) {
+      const candStr = str.slice(0, i) + alt.glyph + str.slice(i + 1);
+      const val = Number(candStr);
+      if (Number.isInteger(val) && !out.includes(val)) out.push(val);
+    }
+  }
+  return out.slice(0, 12);
+}
+
+function refitBracketOrigin(
+  image: ImageData,
+  baseOrigin: Region,
+  pitch: number,
+  lineHeight: number,
+  col: number,
+  line: number,
+  slope: number,
+): { origin: Region; score: number } {
+  let bestScore = -Infinity;
+  let bestOrigin = baseOrigin;
+  for (const dy of [-0.8, -0.5, -0.25, 0, 0.25, 0.5, 0.8]) {
+    for (const dx of [-0.35, 0, 0.35]) {
+      const cand = {
+        ...baseOrigin,
+        x: baseOrigin.x + dx * pitch,
+        y: baseOrigin.y + dy * lineHeight,
+      };
+      const s =
+        ['[', '3', ']'].reduce(
+          (sum, g, i) =>
+            sum + recognizeCellRanked(image, makeBox(cand, pitch, lineHeight, col + i, line, 1, slope), g)[0]!.score,
+          0,
+        ) / 3 -
+        0.02 * (Math.abs(dx) + Math.abs(dy));
+      if (s > bestScore) {
+        bestScore = s;
+        bestOrigin = cand;
+      }
+    }
+  }
+  return { origin: bestOrigin, score: bestScore };
+}
+
+/** Read PokeReader Gen 6 RNG view starting from an estimated Init seed value box. */
+export function readRng6FromAnchor(
+  image: ImageData,
+  initSeedValueRegion: Region,
+): Rng6NccResult | null {
+  const { origin, pitch, lineHeight, slope } = fitOrigin(
+    image,
+    initSeedValueRegion,
+    'eed:',
+    -5,
+    3,
+  );
+  if (!checkAnchor(image, origin, pitch, lineHeight, 'eed:', -5, slope)) return null;
+
+  const seedRow = refitRow(image, origin, pitch, lineHeight, 0, 0, 8, HEX, false, slope);
+  const stateRow = refitRow(image, origin, pitch, lineHeight, 1, 1, 8, HEX, false, slope);
+  const advRow = refitRow(image, origin, pitch, lineHeight, 2, 2, 8, DIGITS, true, slope);
+
+  const advNum = /^\d+$/.test(advRow.text) ? Number(advRow.text) : -1;
+  const advCandidates = buildAdvCandidates(advRow.ranked, advNum);
+  const mtVerify = verifyOrFixSeedWithMt(
+    seedRow.ranked,
+    stateRow.text,
+    advNum >= 0 ? advNum : 0,
+    advCandidates,
+  );
+
+  let tiny3: string | undefined;
+  let tiny2: string | undefined;
+  let tiny1: string | undefined;
+  let tiny0: string | undefined;
+  let tinyVerified = false;
+  let tinyExact = false;
+  let tinyCrops: Rng6NccResult['tinyCrops'];
+  let tinyUncertain: Rng6NccResult['tinyUncertain'];
+
+  // Check if TinyMT block is visible below (full RNG view vs compact Save-var view).
+  const tinyU32AnchorOk = checkAnchor(
+    image,
+    makeBox(origin, pitch, lineHeight, 4, 4, 8, slope),
+    pitch,
+    lineHeight,
+    'eed:',
+    -5,
+    slope,
+    0.25,
+    0.5,
+  );
+  const seedBracket = refitBracketOrigin(image, origin, pitch, lineHeight, -11, 8, slope);
+  const stateBracket = refitBracketOrigin(image, origin, pitch, lineHeight, -11, 11, slope);
+
+  const hasTinySection =
+    (tinyU32AnchorOk && (seedBracket.score > 0.5 || stateBracket.score > 0.5)) ||
+    (seedBracket.score > 0.58 && stateBracket.score > 0.58);
+
+  if (hasTinySection) {
+    const tinyU32Row = refitRow(image, origin, pitch, lineHeight, 4, 4, 8, HEX, false, slope);
+    const tinyAdvRow = refitRow(image, origin, pitch, lineHeight, -1, 5, 6, DIGITS, true, slope);
+    const tinyAdvNum = /^\d+$/.test(tinyAdvRow.text) ? Number(tinyAdvRow.text) : -1;
+    const tinyAdvCands = buildAdvCandidates(tinyAdvRow.ranked, tinyAdvNum);
+
+    const seedOrigin = seedBracket.score > 0.42 ? seedBracket.origin : origin;
+    const stateOrigin = stateBracket.score > 0.42 ? stateBracket.origin : origin;
+
+    const s3 = refitRow(image, seedOrigin, pitch, lineHeight, -8, 8, 8, HEX, false, slope);
+    const s2 = refitRow(image, seedOrigin, pitch, lineHeight, 4, 8, 8, HEX, false, slope);
+    const s1 = refitRow(image, seedOrigin, pitch, lineHeight, -8, 9, 8, HEX, false, slope);
+    const s0 = refitRow(image, seedOrigin, pitch, lineHeight, 4, 9, 8, HEX, false, slope);
+
+    const st3 = refitRow(image, stateOrigin, pitch, lineHeight, -8, 11, 8, HEX, false, slope);
+    const st2 = refitRow(image, stateOrigin, pitch, lineHeight, 4, 11, 8, HEX, false, slope);
+    const st1 = refitRow(image, stateOrigin, pitch, lineHeight, -8, 12, 8, HEX, false, slope);
+    const st0 = refitRow(image, stateOrigin, pitch, lineHeight, 4, 12, 8, HEX, false, slope);
+
+    const tinyRes = verifyOrFixTinyMt(
+      tinyU32Row.ranked,
+      [s3.text, s2.text, s1.text, s0.text],
+      [st3.text, st2.text, st1.text, st0.text],
+      tinyAdvCands,
+    );
+
+    const stateAvgScore =
+      [st3, st2, st1, st0]
+        .flatMap((r) => r.ranked.map((c) => c[0]!.score))
+        .reduce((a, b) => a + b, 0) / 32;
+
+    if (tinyRes?.verified) {
+      tiny3 = tinyRes.tiny3;
+      tiny2 = tinyRes.tiny2;
+      tiny1 = tinyRes.tiny1;
+      tiny0 = tinyRes.tiny0;
+      tinyVerified = true;
+      tinyExact = tinyRes.exact;
+      tinyCrops = {
+        tiny3: st3.region,
+        tiny2: st2.region,
+        tiny1: st1.region,
+        tiny0: st0.region,
+      };
+    } else if (
+      stateBracket.score > 0.55 &&
+      stateAvgScore >= 0.55 &&
+      [st3.text, st2.text, st1.text, st0.text].every((w) => /^[0-9A-F]{8}$/.test(w))
+    ) {
+      tiny3 = st3.text;
+      tiny2 = st2.text;
+      tiny1 = st1.text;
+      tiny0 = st0.text;
+      tinyCrops = {
+        tiny3: st3.region,
+        tiny2: st2.region,
+        tiny1: st1.region,
+        tiny0: st0.region,
+      };
+      tinyUncertain = {
+        tiny3: uncertainIndices(st3.ranked),
+        tiny2: uncertainIndices(st2.ranked),
+        tiny1: uncertainIndices(st1.ranked),
+        tiny0: uncertainIndices(st0.ranked),
+      };
+    }
+  }
+
+  return {
+    seed: mtVerify.seed,
+    mtVerified: mtVerify.verified,
+    mtExact: mtVerify.exact,
+    mtMatchedNibbles: mtVerify.matchedNibbles,
+    frame: mtVerify.frame || advRow.text,
+    seedCrop: seedRow.region,
+    frameCrop: advRow.region,
+    tiny3,
+    tiny2,
+    tiny1,
+    tiny0,
+    tinyVerified,
+    tinyExact,
+    tinyCrops,
+    tinyUncertain,
+  };
+}
+
+/** Read PokeReader Gen 6 Daycare view starting from an estimated Egg[1] value box. */
+export function readDaycare6FromAnchor(
+  image: ImageData,
+  egg1ValueRegion: Region,
+): Daycare6NccResult | null {
+  const { origin, pitch, lineHeight, slope, quality } = fitOrigin(
+    image,
+    egg1ValueRegion,
+    'Egg[1]:',
+    -8,
+    2,
+  );
+  if (!checkAnchor(image, origin, pitch, lineHeight, 'Egg[1]:', -8, slope, 0.25, 0.5)) {
+    return null;
+  }
+
+  const e1 = refitRow(image, origin, pitch, lineHeight, 0, 0, 8, HEX, false, slope);
+  const e0 = refitRow(image, origin, pitch, lineHeight, 0, 1, 8, HEX, false, slope);
+
+  const avgScore =
+    [e1, e0]
+      .flatMap((r) => r.ranked.map((c) => c[0]!.score))
+      .reduce((a, b) => a + b, 0) / 16;
+  if (avgScore < 0.48) return null;
+
+  return {
+    egg1: e1.text,
+    egg0: e0.text,
+    quality: quality + avgScore,
+    uncertain: {
+      egg1: uncertainIndices(e1.ranked),
+      egg0: uncertainIndices(e0.ranked),
+    },
+    crops: {
       egg1: e1.region,
       egg0: e0.region,
     },

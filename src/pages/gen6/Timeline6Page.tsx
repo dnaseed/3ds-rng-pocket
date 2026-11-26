@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { ScanText } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { formatEggSeedStr, parseEggSeedStr, toHex32 } from '../../engine/math/uint';
 import { convertToTimeStr } from '../../engine/core/pokemonMath';
 import { FrameField, FrameSyncBadge } from '../../components/results/FrameValues';
@@ -24,8 +25,8 @@ const allowedCalls = (method: TimelineMethod6) => {
   }
 };
 
-export function Timeline6Page({ saved, game, onSave }: {
-  saved?: Timeline6Request; game: string; onSave: (q: Timeline6Request) => void;
+export function Timeline6Page({ saved, game, onSave, onOpenScan }: {
+  saved?: Timeline6Request; game: string; onSave: (q: Timeline6Request) => void; onOpenScan?: () => void;
 }) {
   const { lang, i18n } = useApp();
   const it = lang === 'it';
@@ -38,6 +39,10 @@ export function Timeline6Page({ saved, game, onSave }: {
     split: false, delay: 0, party: 1, cry: null, slots: 2, rate: 1, chain: 0, boost: false, oras,
   });
   const [words, setWords] = useState(initial ? formatEggSeedStr(initial.state).split(',') : ['','','','']);
+  const savedStateStr = initial ? formatEggSeedStr(initial.state) : '';
+  useEffect(() => {
+    if (savedStateStr) setWords(savedStateStr.split(','));
+  }, [savedStateStr]);
   const [error, setError] = useState('');
   const [result, setResult] = useState<(Results6Data<TimelineRow6> & { query: Timeline6Request }) | null>(null);
   const [row, setRow] = useState<TimelineRow6 | null>(null);
@@ -76,7 +81,24 @@ export function Timeline6Page({ saved, game, onSave }: {
         </span>
         <span className="block font-mono text-xs">{result?.query.split ? `${t('gen6.hitIndex')} #${r.hit}` : `R(100) ${scale6(r.rand, 100)}`}</span>
       </button>}/>}>
-      <section className={cardClass}><h1>TinyMT Timeline</h1>
+      <section className={cardClass}>
+        <div className="flex items-center justify-between gap-2">
+          <h1>TinyMT Timeline</h1>
+          {onOpenScan && (
+            <button
+              type="button"
+              onClick={onOpenScan}
+              aria-label={it ? 'Scansiona overlay' : 'Scan overlay'}
+              className="min-h-11 px-2.5 -my-1.5 shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/35 text-xs font-semibold text-amber-200 hover:border-amber-400/60 active:scale-95 transition"
+            >
+              <ScanText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden min-[400px]:inline">
+                {it ? 'Scansiona overlay' : 'Scan overlay'}
+              </span>
+              <span className="min-[400px]:hidden">Overlay</span>
+            </button>
+          )}
+        </div>
         <label className={labelClass}>{it ? 'Metodo' : 'Method'}<select className={fieldClass} value={q.method} onChange={e=>changeMethod(e.target.value as TimelineMethod6)}>
           {selectable.map(m=><option key={m} value={m}>{methodName(m)}</option>)}</select></label>
         <div className="grid grid-cols-2 gap-2">{words.map((word,i)=><label className={labelClass} key={i}>S{3-i}<input className={fieldClass} maxLength={8} value={word}
