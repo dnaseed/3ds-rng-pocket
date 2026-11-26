@@ -1,10 +1,11 @@
-import { AlertCircle, Calculator, CheckCircle2, Loader2, Search, Settings2, WifiOff } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Calculator, Camera, CheckCircle2, Loader2, ScanText, Search, Settings2, WifiOff } from 'lucide-react';
+import { lazy, Suspense, useEffect, useId, useMemo, useState } from 'react';
 import { ClockPickerGrid } from '../components/clock/ClockPickerGrid';
 import { ClockSequenceBar } from '../components/clock/ClockSequenceBar';
 import { HexSeedInput } from '../components/common/HexSeedInput';
 import { NumberStepper } from '../components/common/NumberStepper';
 import { calcFrame, getStartingFrame } from '../engine/core/pokemonMath';
+import { adjustClockReading, adjustClockSequence } from '../engine/gen7/clockHelper';
 import type { QrMatch } from '../engine/gen7/qrSearch';
 import { parseHex32, toHex32 } from '../engine/math/uint';
 import { fetchInitialSeed, SeedApiError, type SeedApiResult } from '../services/sfmtSeedApi';
@@ -14,8 +15,10 @@ import { useSearchWorker } from '../workers/useSearchWorker';
 type SeedMode = 'save' | 'id' | 'qr';
 
 const OverlayScanner = lazy(() => import('../components/clock/PokeReaderScanner'));
+const ClockCameraHelper = lazy(() => import('../components/clock/ClockCameraHelper'));
 export function SeedPage() {
   const [scan,setScan]=useState(false);
+  const [clockCam, setClockCam] = useState(false);
   const {
     i18n,
     isUltra,
@@ -62,7 +65,8 @@ export function SeedPage() {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 64rem)').matches : false,
   );
-  const timeCalcRef = useRef<HTMLDivElement | null>(null);
+  const seedInputId = useId();
+  const it = i18n.lang === 'it';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -99,9 +103,14 @@ export function SeedPage() {
 
   const handlePickClock = (rawIdx: number) => {
     // Only Save Screen mode supports End Position offset; ID & QR always use Start Position (Gen7MainRNGTool.cs:72-73)
-    const adjusted =
-      mode === 'save' && isEndReading ? (rawIdx + (17 - offset)) % 17 : rawIdx;
+    const adjusted = adjustClockReading(rawIdx, mode, isEndReading, offset);
     setSequence((prev) => [...prev, adjusted]);
+  };
+
+  const handleConfirmCameraSequence = (rawSeq: number[]) => {
+    const adjusted = adjustClockSequence(rawSeq, mode, isEndReading, offset);
+    setSequence(adjusted);
+    setClockCam(false);
   };
 
   // Auto-query when sequence satisfies minimum length
@@ -191,8 +200,54 @@ export function SeedPage() {
 
   const seedInputsNode = (
     <div className="seed-inputs space-y-3">
-      <button type="button" className="choice-button rounded-lg px-3 py-2" onClick={()=>setScan(true)}>{i18n.lang==="it"?"Scansiona overlay":"Scan overlay"}</button>
-      {scan && <Suspense fallback={<span>…</span>}><OverlayScanner close={()=>setScan(false)}/></Suspense>}
+      {/* Manual Seed Hex Card (always first and accessible offline) */}
+      <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <label
+            htmlFor={seedInputId}
+            className="text-xs font-semibold text-zinc-300 truncate"
+          >
+            {i18n.t('seed.manualHex')}
+          </label>
+          <button
+            type="button"
+            onClick={() => setScan(true)}
+            aria-label={it ? 'Scansiona overlay' : 'Scan overlay'}
+            className="min-h-11 px-2.5 -my-1.5 shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/35 text-xs font-semibold text-amber-200 hover:border-amber-400/60 active:scale-95 transition"
+          >
+            <ScanText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span className="hidden min-[400px]:inline">
+              {it ? 'Scansiona overlay' : 'Scan overlay'}
+            </span>
+            <span className="min-[400px]:hidden">Overlay</span>
+          </button>
+        </div>
+
+        <HexSeedInput
+          inputId={seedInputId}
+          ariaLabel={i18n.t('seed.manualHex')}
+          value={initialSeedHex}
+          onChange={setInitialSeedHex}
+        />
+
+        {mode === 'qr' && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <NumberStepper
+              label={i18n.t('search.startFrame')}
+              value={qrMin}
+              min={0}
+              onChange={setQrMin}
+            />
+            <NumberStepper
+              label={i18n.t('search.endFrame')}
+              value={qrMax}
+              min={0}
+              onChange={setQrMax}
+            />
+          </div>
+        )}
+      </div>
+
       {/* Mode Segmented Control */}
       <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
         {(
@@ -229,46 +284,6 @@ export function SeedPage() {
         </div>
       )}
 
-      {/* Manual Seed Hex Card (always accessible offline) */}
-      <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-3 space-y-2.5">
-        <HexSeedInput
-          label={i18n.t('seed.manualHex')}
-          value={initialSeedHex}
-          onChange={setInitialSeedHex}
-        />
-
-        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-zinc-800/70">
-          <div className="text-[11px] font-mono tabular-nums text-zinc-400 truncate">
-            {startFrame}→{targetFrame}F · <span className="text-amber-300 font-semibold">{timeCalcStr}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => timeCalcRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="h-8 px-2.5 shrink-0 rounded-lg bg-zinc-950 border border-zinc-800 text-[11px] font-semibold text-amber-300 flex items-center gap-1 active:scale-95 transition"
-          >
-            <Calculator className="w-3.5 h-3.5" />
-            <span>{i18n.t('seed.jumpTimeCalc')}</span>
-          </button>
-        </div>
-
-        {mode === 'qr' && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <NumberStepper
-              label={i18n.t('search.startFrame')}
-              value={qrMin}
-              min={0}
-              onChange={setQrMin}
-            />
-            <NumberStepper
-              label={i18n.t('search.endFrame')}
-              value={qrMax}
-              min={0}
-              onChange={setQrMax}
-            />
-          </div>
-        )}
-      </div>
-
       {/* Clock Reading Controls */}
       <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-3 space-y-2.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -277,7 +292,7 @@ export function SeedPage() {
               <button
                 type="button"
                 onClick={() => setIsEndReading(true)}
-                className={`h-9 px-3 rounded-xl text-xs font-medium border transition ${
+                className={`min-h-11 px-3 rounded-xl text-xs font-medium border transition ${
                   isEndReading
                     ? 'bg-amber-500/15 border-amber-500/50 text-amber-200'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400'
@@ -288,7 +303,7 @@ export function SeedPage() {
               <button
                 type="button"
                 onClick={() => setIsEndReading(false)}
-                className={`h-9 px-3 rounded-xl text-xs font-medium border transition ${
+                className={`min-h-11 px-3 rounded-xl text-xs font-medium border transition ${
                   !isEndReading
                     ? 'bg-amber-500/15 border-amber-500/50 text-amber-200'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400'
@@ -310,7 +325,7 @@ export function SeedPage() {
                 type="button"
                 onClick={() => setClockStyle(style)}
                 aria-pressed={clockStyle === style}
-                className="choice-button min-h-9 px-2 rounded-xl text-xs font-medium active:scale-95 transition"
+                className="choice-button min-h-11 px-2.5 rounded-xl text-xs font-medium active:scale-95 transition"
               >
                 {i18n.t(style === 'svg' ? 'seed.useSvg' : 'seed.useSprite')}
               </button>
@@ -327,6 +342,15 @@ export function SeedPage() {
             onChange={setOffset}
           />
         )}
+
+        <button
+          type="button"
+          onClick={() => setClockCam(true)}
+          className="min-h-11 w-full rounded-xl bg-amber-500/10 border border-amber-500/35 px-3 text-xs font-semibold text-amber-200 hover:border-amber-400/60 flex items-center justify-center gap-2 active:scale-95 transition"
+        >
+          <Camera className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>{it ? 'Usa fotocamera' : 'Use camera'}</span>
+        </button>
       </div>
 
       {/* Entered Sequence */}
@@ -441,7 +465,6 @@ export function SeedPage() {
 
   const timeCalcNode = (
     <div
-      ref={timeCalcRef}
       className="seed-timecalc rounded-2xl bg-zinc-900/90 border border-zinc-800 p-3 space-y-2.5 scroll-mt-16"
     >
         <div className="flex items-center justify-between gap-2">
@@ -537,6 +560,23 @@ export function SeedPage() {
           {seedClocksNode}
           {timeCalcNode}
         </>
+      )}
+      {scan && (
+        <Suspense fallback={null}>
+          <OverlayScanner close={() => setScan(false)} />
+        </Suspense>
+      )}
+      {clockCam && (
+        <Suspense fallback={null}>
+          <ClockCameraHelper
+            mode={mode}
+            isEndReading={isEndReading}
+            offset={offset}
+            hasValidSeed={parseHex32(initialSeedHex) !== null}
+            onConfirmSequence={handleConfirmCameraSequence}
+            close={() => setClockCam(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

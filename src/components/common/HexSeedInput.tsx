@@ -7,13 +7,24 @@ interface HexSeedInputProps {
   value: string;
   onChange?: (hex: string) => void;
   label?: string;
+  inputId?: string;
+  ariaLabel?: string;
   onDraftChange?: (hex: string) => void;
   clipboard?: boolean;
 }
 
-export function HexSeedInput({ value, onChange, label, onDraftChange, clipboard = true }: HexSeedInputProps) {
+export function HexSeedInput({
+  value,
+  onChange,
+  label,
+  inputId,
+  ariaLabel,
+  onDraftChange,
+  clipboard = true,
+}: HexSeedInputProps) {
   const { i18n } = useApp();
-  const id = useId();
+  const generatedId = useId();
+  const id = inputId ?? generatedId;
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -74,7 +85,7 @@ export function HexSeedInput({ value, onChange, label, onDraftChange, clipboard 
           spellCheck={false}
           autoCapitalize="characters"
           autoComplete="off"
-          aria-label={label ?? 'Hex Seed'}
+          aria-label={ariaLabel ?? label ?? 'Hex Seed'}
           onFocus={() => setFocused(true)}
           onBlur={() => {
             setFocused(false);
