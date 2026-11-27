@@ -38,6 +38,7 @@ interface ClockCameraHelperProps {
   mode: ClockSeedMode;
   isEndReading: boolean;
   offset: number;
+  existingCount?: number;
   hasValidSeed: boolean;
   onConfirmSequence: (rawSequence: number[]) => void;
   close: () => void;
@@ -129,6 +130,7 @@ export default function ClockCameraHelper({
   mode,
   isEndReading,
   offset,
+  existingCount = 0,
   hasValidSeed,
   onConfirmSequence,
   close,
@@ -164,6 +166,7 @@ export default function ClockCameraHelper({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [reticleOffset, setReticleOffset] = useState({ x: 0, y: 0 });
   const [centerMode, setCenterMode] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -636,6 +639,7 @@ export default function ClockCameraHelper({
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(10);
     }
+    setConfirmClose(false);
     setDraftRaw((prev) => [...prev, selectedIndex]);
     resumeLiveOrFallback();
   };
@@ -712,16 +716,34 @@ export default function ClockCameraHelper({
     }
   };
 
+  const totalCount = existingCount + draftRaw.length;
+  const canSavePartial =
+    sameProfile && draftRaw.length > 0 && totalCount < requiredCount;
   const canConfirm =
     sameProfile &&
+    draftRaw.length > 0 &&
     (mode === 'qr'
-      ? draftRaw.length >= requiredCount && hasValidSeed
-      : draftRaw.length >= requiredCount);
+      ? totalCount >= requiredCount && hasValidSeed
+      : totalCount >= requiredCount);
 
   const handleConfirm = () => {
     if (!canConfirm) return;
     onConfirmSequence(draftRaw);
     close();
+  };
+
+  const handleSavePartial = () => {
+    if (!canSavePartial) return;
+    onConfirmSequence(draftRaw);
+    close();
+  };
+
+  const handleRequestClose = () => {
+    if (draftRaw.length === 0 || confirmClose) {
+      close();
+      return;
+    }
+    setConfirmClose(true);
   };
 
   const activeFrame = frozenFrames[scrubIndex];
@@ -754,8 +776,58 @@ export default function ClockCameraHelper({
       title={it ? 'Camera lancette' : 'Clock camera'}
       subtitle={subtitle}
       closeLabel={it ? 'Chiudi' : 'Close'}
-      onClose={close}
+      onClose={handleRequestClose}
     >
+
+        {confirmClose && draftRaw.length > 0 && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-2 text-xs text-amber-100"
+          >
+            <p className="font-medium">
+              {totalCount < requiredCount
+                ? it
+                  ? `Hai ${draftRaw.length} letture nella bozza. Vuoi salvarle nella sequenza prima di chiudere?`
+                  : `You have ${draftRaw.length} readings in this draft. Save them to the sequence before closing?`
+                : it
+                  ? `Hai ${draftRaw.length} letture pronte (${totalCount}/${requiredCount}). Vuoi cercare ora o scartare la bozza?`
+                  : `You have ${draftRaw.length} readings ready (${totalCount}/${requiredCount}). Look up now or discard draft?`}
+            </p>
+            <div className="flex items-center gap-2">
+              {totalCount < requiredCount ? (
+                <button
+                  type="button"
+                  onClick={handleSavePartial}
+                  className="min-h-11 flex-1 px-3 rounded-xl bg-amber-400 text-zinc-950 font-bold active:scale-95 transition"
+                >
+                  {it ? 'Salva nella sequenza' : 'Save to sequence'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canConfirm}
+                  onClick={handleConfirm}
+                  className="min-h-11 flex-1 px-3 rounded-xl bg-sky-400 text-zinc-950 font-bold disabled:opacity-40 active:scale-95 transition"
+                >
+                  {mode === 'qr'
+                    ? it
+                      ? 'Cerca frame QR'
+                      : 'Search QR frames'
+                    : it
+                      ? 'Cerca seed online'
+                      : 'Look up seed online'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={close}
+                className="min-h-11 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-zinc-200 font-medium active:scale-95 transition"
+              >
+                {it ? 'Scarta e chiudi' : 'Discard & close'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {!sameProfile && (
           <p role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-200">
@@ -1170,25 +1242,38 @@ export default function ClockCameraHelper({
         {/* Independent local draft bar */}
         <div className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-2.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-semibold text-zinc-300">
                 {it ? 'Bozza camera' : 'Camera draft'}
               </span>
               <span
                 className={`px-2 py-0.5 rounded-full font-mono text-xs font-bold tabular-nums ${
-                  draftRaw.length >= requiredCount
+                  totalCount >= requiredCount
                     ? 'bg-emerald-500/20 text-emerald-300'
                     : 'bg-zinc-800 text-zinc-400'
                 }`}
               >
-                {draftRaw.length}/{requiredCount}
+                {totalCount}/{requiredCount}
               </span>
+              {existingCount > 0 && (
+                <span className="text-[11px] text-zinc-400">
+                  {it
+                    ? `(${existingCount} + ${draftRaw.length} nuove)`
+                    : `(${existingCount} + ${draftRaw.length} new)`}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={draftRaw.length === 0}
-                onClick={() => setDraftRaw((prev) => prev.slice(0, -1))}
+                onClick={() => {
+                  setDraftRaw((prev) => {
+                    const next = prev.slice(0, -1);
+                    if (next.length === 0) setConfirmClose(false);
+                    return next;
+                  });
+                }}
                 className="min-h-11 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-xs text-zinc-200 flex items-center gap-1 disabled:opacity-40"
               >
                 <Delete className="w-3.5 h-3.5" />
@@ -1197,7 +1282,10 @@ export default function ClockCameraHelper({
               <button
                 type="button"
                 disabled={draftRaw.length === 0}
-                onClick={() => setDraftRaw([])}
+                onClick={() => {
+                  setConfirmClose(false);
+                  setDraftRaw([]);
+                }}
                 className="min-h-11 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-xs text-rose-300 flex items-center gap-1 disabled:opacity-40"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1242,27 +1330,42 @@ export default function ClockCameraHelper({
           </p>
         )}
 
-        <button
-          type="button"
-          disabled={!canConfirm}
-          onClick={handleConfirm}
-          className="min-h-12 w-full rounded-xl bg-sky-400 text-zinc-950 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition"
-        >
-          {mode === 'qr' ? (
-            <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
-          ) : (
-            <Globe className="w-4 h-4 shrink-0" aria-hidden="true" />
-          )}
-          <span>
-            {mode === 'qr'
-              ? it
-                ? 'Cerca frame QR'
-                : 'Search QR frames'
-              : it
-                ? 'Cerca seed online'
-                : 'Look up seed online'}
-          </span>
-        </button>
+        {canSavePartial ? (
+          <button
+            type="button"
+            onClick={handleSavePartial}
+            className="min-h-12 w-full rounded-xl bg-amber-500/15 border border-amber-400/60 text-amber-200 text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+          >
+            <Plus className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>
+              {it
+                ? `Salva ${draftRaw.length} nella sequenza`
+                : `Save ${draftRaw.length} to sequence`}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={handleConfirm}
+            className="min-h-12 w-full rounded-xl bg-sky-400 text-zinc-950 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition"
+          >
+            {mode === 'qr' ? (
+              <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <Globe className="w-4 h-4 shrink-0" aria-hidden="true" />
+            )}
+            <span>
+              {mode === 'qr'
+                ? it
+                  ? 'Cerca frame QR'
+                  : 'Search QR frames'
+                : it
+                  ? 'Cerca seed online'
+                  : 'Look up seed online'}
+            </span>
+          </button>
+        )}
     </ScannerModalShell>
   );
 }

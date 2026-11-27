@@ -109,7 +109,7 @@ export function SeedPage() {
 
   const handleConfirmCameraSequence = (rawSeq: number[]) => {
     const adjusted = adjustClockSequence(rawSeq, mode, isEndReading, offset);
-    setSequence(adjusted);
+    setSequence((prev) => [...prev, ...adjusted]);
     setClockCam(false);
   };
 
@@ -572,6 +572,7 @@ export function SeedPage() {
             mode={mode}
             isEndReading={isEndReading}
             offset={offset}
+            existingCount={sequence.length}
             hasValidSeed={parseHex32(initialSeedHex) !== null}
             onConfirmSequence={handleConfirmCameraSequence}
             close={() => setClockCam(false)}

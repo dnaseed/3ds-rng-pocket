@@ -66,21 +66,22 @@ Designed for **Gen 7 players without CFW** who need accurate readings from the b
 
 #### Save Screen (`End · Offset 4`) — step-by-step for your first sequence
 
-1. On your phone, open **Seed → Save → End → Offset 4 → Use camera**. On your 3DS/2DS, boot to the Title screen (**Press A / Start**) — this fixes your initial seed.
+1. On your phone, open **Seed → Save → End → Offset 4 → Use camera**. On your 3DS/2DS, boot or Soft Reset to the Title screen (**Press A / Start**) and stay there — the online Save lookup expects your sequence to start from the **very first** Continue screen of that boot.
 2. **Capture one reading:** press **A** on the 3DS/2DS to enter **Continue** and watch the bottom-screen loading clock. Right after it finishes, tap **Freeze** on your phone.
 3. Scrub the last **30 frames (60 ms steps, ~1.8 s)** back to the **last clear frame where the clock is still visible** (immediately before / as the Trainer portrait starts to appear).
 4. Tap **Center reticle** to align the open center ring with the clock hub (drag anywhere on the square so your finger never covers the clock, or use `← ↑ ↓ →`), compare **both** hands — especially the faster `2×` long yellow hand — against the side-by-side `Clock_XX` sprite, and tap **`+ Add XX`** to save the reading.
-5. Press **B** on the 3DS/2DS to return to the Title screen (**never Soft Reset**, which changes the initial seed) and repeat steps 2–4 on the same boot until you have **8 consecutive readings** (if you miss one, tap **Clear** in the draft and collect 8 fresh consecutive readings).
+5. Press **B** on the 3DS/2DS to return to the Title screen (**never Soft Reset** mid-sequence, or your seed will change) and repeat steps 2–4 until you have **at least 8 consecutive readings** (if you already entered Continue once before starting, or miss a reading mid-way, Soft Reset to start a fresh boot). There is no maximum of 8: reopening **Use camera** appends new readings onto your existing sequence so you can easily add a 9th or 10th reading.
 6. Tap **Look up seed online** to submit your confirmed sequence once (internet is only needed at this step; zero requests are sent while collecting).
 
 - **Save End (`Offset 4`) tip:** in physical 2DS testing, when the last clear clock frame sits midway between two adjacent close ticks, picking the **next configuration (`+1`)** (unless clearly far away) works best; taking a **9th consecutive reading** helps rule out random seed collisions.
-- **Other modes & camera behavior:** **Use camera** also works in **New Game ID** (`Start`, 9 readings) and **QR Scanner** (`Start`, min 2 readings, 100% offline). It requests `1080p` from the rear camera; focus (**Refocus AF**), zoom (`HW` / `Mix` / `Dig`), and rear **Lens** switching depend on your phone. Frozen frames are protected from stray taps, switching apps pauses the camera while keeping your draft, and closing with `X` leaves manual readings untouched.
+- **Mixing camera & manual readings:** you can save a partial camera draft (`< 8`) straight into the sequence (or choose **Save to sequence** if you close with readings in the draft) and finish the rest manually — or vice versa.
+- **Other modes & camera behavior:** **Use camera** also works in **New Game ID** (`Start`, 9 readings) and **QR Scanner** (`Start`, min 2 readings, 100% offline). It requests `1080p` from the rear camera; focus (**Refocus AF**), zoom (`HW` / `Mix` / `Dig`), and rear **Lens** switching depend on your phone. Frozen frames are protected from stray taps, and switching apps pauses the camera while keeping your draft.
 
 ## Desktop parity and scope
 
 - **Gen 7:** frame outputs were compared row by row with **3DSRNGTool v1.0.6** on sampled **Ultra Sun** and **Moon** scenarios covering Stationary, Wild, Egg, Event, Trainer ID, and Misc RNG.
 - **Gen 6:** outputs were verified against **3DSRNGTool v1.0.6** across MT19937, TinyMT Timeline, Stationary/Transporter, Wild/Fishing/Rock Smash/Shadows/Trap/Friend Safari, Hordes, PokéRadar, Egg, Event (`.wc6`/`.wc6full`), ID RNG, Pokérus, and MT Seed Finder. For **DexNav**, patch/trigger calculations match `DexNav.cs` while Pokémon generation matches the `Wild6` generator of `3DSRNGTool v1.0.6` (the v1.0.6 Windows UI does not expose an integrated DexNav flow).
-- **Assisted acquisition scope:** Gen 7 OCR is verified on **Ultra Sun (PokeReader 0.7.4)**; Gen 6 OCR is active for XY/ORAS and verified offline on **ORAS ITA 1.4** (Pokémon X/Y real-photo corpus pending). Both **Clock camera** (Save End against PokeReader seed, QR offline) and **Scan overlay** were verified on real **Android Chrome + Nintendo 2DS** hardware; iOS Safari remains unverified on physical hardware.
+- **Assisted acquisition scope:** Gen 7 OCR is verified on **Ultra Sun (PokeReader 0.7.4)**; Gen 6 OCR is active for XY/ORAS and verified offline on **ORAS ITA 1.4** (Pokémon X/Y real-photo corpus pending). Hardware testing verified **Clock camera** + **Scan overlay** on **Android Chrome (Galaxy S23) + Nintendo 2DS**, and PWA installation, camera access, and offline execution on **iPadOS Safari** (iPhone Safari compact viewport not yet tested).
 
 ## Use online or install on a phone
 
