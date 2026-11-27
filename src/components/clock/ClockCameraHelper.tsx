@@ -1,16 +1,23 @@
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Camera,
   ChevronLeft,
   ChevronRight,
+  Crosshair,
   Delete,
   Globe,
   ImagePlus,
   Minus,
+  Move,
   Pause,
   Play,
   Plus,
   RotateCcw,
   Search,
+  SwitchCamera,
   Trash2,
   WifiOff,
 } from 'lucide-react';
@@ -37,16 +44,56 @@ interface ClockCameraHelperProps {
 }
 
 type HelperPhase = 'starting' | 'live' | 'frozen' | 'fallback' | 'paused';
+type ZoomMode = 'hw' | 'mix' | 'dig';
+
+interface RearCameraOption {
+  deviceId: string;
+  label: string;
+}
 
 interface ExtendedTrackCapabilities extends MediaTrackCapabilities {
   focusMode?: string[];
   zoom?: { min?: number; max?: number; step?: number };
 }
 
-const RING_CAPACITY = 10;
-const SAMPLE_INTERVAL_MS = 150;
-const RING_FRAME_SIZE = 320;
-const FALLBACK_FRAME_SIZE = 480;
+const RING_CAPACITY = 30;
+const SAMPLE_INTERVAL_MS = 60;
+const RING_FRAME_SIZE = 440;
+const FALLBACK_FRAME_SIZE = 512;
+const LENS_STORAGE_KEY = 'usum_rng_clock_lens_v1';
+
+interface CapturedFrame {
+  src: string;
+  ts: number;
+}
+
+function readStoredLensId(): string | null {
+  try {
+    return localStorage.getItem(LENS_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredLensId(deviceId: string | null): void {
+  try {
+    if (deviceId) {
+      localStorage.setItem(LENS_STORAGE_KEY, deviceId);
+    } else {
+      localStorage.removeItem(LENS_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isFrontCameraLabel(label: string): boolean {
+  return /\b(front|user|selfie|facing front)\b/i.test(label);
+}
+
+function isRearCameraLabel(label: string): boolean {
+  return /\b(back|rear|environment|world)\b/i.test(label);
+}
 
 function formatClockIdx(idx: number): string {
   return String(idx).padStart(2, '0');
@@ -75,7 +122,7 @@ function captureSquareFromVideo(
 
   ctx.clearRect(0, 0, RING_FRAME_SIZE, RING_FRAME_SIZE);
   ctx.drawImage(video, sx, sy, srcSide, srcSide, 0, 0, RING_FRAME_SIZE, RING_FRAME_SIZE);
-  return canvas.toDataURL('image/jpeg', 0.78);
+  return canvas.toDataURL('image/jpeg', 0.82);
 }
 
 export default function ClockCameraHelper({
@@ -106,16 +153,27 @@ export default function ClockCameraHelper({
 
   const [phase, setPhase] = useState<HelperPhase>('starting');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [zoomMode, setZoomMode] = useState<ZoomMode>('dig');
+  const [canRefocus, setCanRefocus] = useState(false);
+  const [refocusing, setRefocusing] = useState(false);
+  const [rearCameras, setRearCameras] = useState<RearCameraOption[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [draftRaw, setDraftRaw] = useState<number[]>([]);
-  const [frozenFrames, setFrozenFrames] = useState<string[]>([]);
+  const [frozenFrames, setFrozenFrames] = useState<CapturedFrame[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [reticleOffset, setReticleOffset] = useState({ x: 0, y: 0 });
+  const [centerMode, setCenterMode] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const hwZoomRangeRef = useRef<{ min: number; max: number } | null>(null);
+  const supportsContinuousFocusRef = useRef(false);
+  const supportsSingleShotFocusRef = useRef(false);
+  const activeDeviceIdRef = useRef<string | null>(readStoredLensId());
+  const refocusTimerRef = useRef<number | null>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const ringBufferRef = useRef(new FrameRingBuffer<string>(RING_CAPACITY));
+  const ringBufferRef = useRef(new FrameRingBuffer<CapturedFrame>(RING_CAPACITY));
   const sampleTimerRef = useRef<number | null>(null);
   const phaseRef = useRef<HelperPhase>('starting');
   const zoomRef = useRef(zoom);
@@ -153,9 +211,19 @@ export default function ClockCameraHelper({
   const stopCamera = useCallback(() => {
     cameraAttemptRef.current += 1;
     stopSampling();
+    if (refocusTimerRef.current !== null) {
+      window.clearTimeout(refocusTimerRef.current);
+      refocusTimerRef.current = null;
+    }
     const stream = streamRef.current;
     streamRef.current = null;
     hwZoomRangeRef.current = null;
+    supportsContinuousFocusRef.current = false;
+    supportsSingleShotFocusRef.current = false;
+    if (mountedRef.current) {
+      setCanRefocus(false);
+      setRefocusing(false);
+    }
     if (stream) {
       for (const track of stream.getTracks()) {
         try {
@@ -183,22 +251,42 @@ export default function ClockCameraHelper({
 
     if (track && range && range.max > range.min) {
       const hwTarget = Math.min(range.max, Math.max(range.min, clamped));
+      const constraintWithFocus = supportsContinuousFocusRef.current
+        ? { zoom: hwTarget, focusMode: 'continuous' }
+        : { zoom: hwTarget };
+      let appliedHw = false;
       try {
         await track.applyConstraints({
-          advanced: [{ zoom: hwTarget }],
+          advanced: [constraintWithFocus],
         } as unknown as MediaTrackConstraints);
+        appliedHw = true;
+      } catch {
+        if (supportsContinuousFocusRef.current) {
+          try {
+            await track.applyConstraints({
+              advanced: [{ zoom: hwTarget }],
+            } as unknown as MediaTrackConstraints);
+            appliedHw = true;
+          } catch {
+            // Fallback transparently to pure digital zoom
+          }
+        }
+      }
+      if (appliedHw) {
         const residual = clamped / hwTarget;
         if (mountedRef.current) {
           setDigitalZoom(residual);
+          setZoomMode(
+            residual <= 1.01 ? 'hw' : hwTarget > range.min + 0.01 ? 'mix' : 'dig',
+          );
         }
         return;
-      } catch {
-        // Fallback transparently to pure digital zoom
       }
     }
 
     if (mountedRef.current) {
       setDigitalZoom(clamped);
+      setZoomMode('dig');
     }
   }, []);
 
@@ -216,107 +304,182 @@ export default function ClockCameraHelper({
         digitalZoomRef.current,
       );
       if (frame) {
-        ringBufferRef.current.push(frame);
+        ringBufferRef.current.push({ src: frame, ts: performance.now() });
       }
     }, SAMPLE_INTERVAL_MS);
   }, [stopSampling]);
 
-  const startCamera = useCallback(async () => {
-    stopCamera();
-    const attemptId = ++cameraAttemptRef.current;
-    ringBufferRef.current.clear();
-    setCameraError(null);
-    setPhase('starting');
+  const startCamera = useCallback(
+    async (preferredDeviceId?: string) => {
+      stopCamera();
+      const attemptId = ++cameraAttemptRef.current;
+      ringBufferRef.current.clear();
+      setCameraError(null);
+      setReticleOffset({ x: 0, y: 0 });
+      setCenterMode(false);
+      setPhase('starting');
 
-    if (
-      typeof navigator === 'undefined' ||
-      !navigator.mediaDevices ||
-      typeof navigator.mediaDevices.getUserMedia !== 'function'
-    ) {
-      setPhase('fallback');
-      setCameraError(
-        it
-          ? 'Fotocamera live non supportata su questo browser. Usa Apri foto.'
-          : 'Live camera not supported here. Use Open photo instead.',
-      );
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
-
-      if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
-        for (const track of stream.getTracks()) track.stop();
+      if (
+        typeof navigator === 'undefined' ||
+        !navigator.mediaDevices ||
+        typeof navigator.mediaDevices.getUserMedia !== 'function'
+      ) {
+        setPhase('fallback');
+        setCameraError(
+          it
+            ? 'Fotocamera live non supportata su questo browser. Usa Apri foto.'
+            : 'Live camera not supported here. Use Open photo instead.',
+        );
         return;
       }
 
-      streamRef.current = stream;
-      const track = stream.getVideoTracks()[0];
-      if (track) {
-        let caps: ExtendedTrackCapabilities | undefined;
-        try {
-          caps = track.getCapabilities?.() as ExtendedTrackCapabilities | undefined;
-        } catch {
-          caps = undefined;
+      const targetId = preferredDeviceId ?? activeDeviceIdRef.current;
+      try {
+        let stream: MediaStream;
+        if (targetId) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: targetId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            });
+          } catch {
+            writeStoredLensId(null);
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            });
+          }
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+            audio: false,
+          });
         }
 
-        if (caps?.focusMode?.includes('continuous')) {
+        if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
+          for (const track of stream.getTracks()) track.stop();
+          return;
+        }
+
+        streamRef.current = stream;
+        const track = stream.getVideoTracks()[0];
+        let currentId: string | null = targetId ?? null;
+        if (track) {
+          let caps: ExtendedTrackCapabilities | undefined;
           try {
-            await track.applyConstraints({
-              advanced: [{ focusMode: 'continuous' }],
-            } as unknown as MediaTrackConstraints);
+            caps = track.getCapabilities?.() as ExtendedTrackCapabilities | undefined;
           } catch {
-            // Ignore unsupported continuous focus constraints
+            caps = undefined;
+          }
+
+          supportsContinuousFocusRef.current = Boolean(
+            caps?.focusMode?.includes('continuous'),
+          );
+          supportsSingleShotFocusRef.current = Boolean(
+            caps?.focusMode?.includes('single-shot'),
+          );
+          setCanRefocus(
+            supportsContinuousFocusRef.current || supportsSingleShotFocusRef.current,
+          );
+
+          if (supportsContinuousFocusRef.current) {
+            try {
+              await track.applyConstraints({
+                advanced: [{ focusMode: 'continuous' }],
+              } as unknown as MediaTrackConstraints);
+            } catch {
+              // Ignore unsupported continuous focus constraints
+            }
+          }
+
+          if (
+            caps?.zoom &&
+            typeof caps.zoom.min === 'number' &&
+            typeof caps.zoom.max === 'number' &&
+            caps.zoom.max > caps.zoom.min
+          ) {
+            hwZoomRangeRef.current = { min: caps.zoom.min, max: caps.zoom.max };
+          }
+
+          try {
+            const devId = track.getSettings?.().deviceId;
+            if (devId) currentId = devId;
+          } catch {
+            // ignore
           }
         }
 
-        if (
-          caps?.zoom &&
-          typeof caps.zoom.min === 'number' &&
-          typeof caps.zoom.max === 'number' &&
-          caps.zoom.max > caps.zoom.min
-        ) {
-          hwZoomRangeRef.current = { min: caps.zoom.min, max: caps.zoom.max };
+        activeDeviceIdRef.current = currentId;
+        setActiveDeviceId(currentId);
+
+        try {
+          const allDevices = await navigator.mediaDevices.enumerateDevices?.();
+          if (mountedRef.current && cameraAttemptRef.current === attemptId && allDevices) {
+            const videoInputs = allDevices.filter(
+              (d) => d.kind === 'videoinput' && Boolean(d.deviceId),
+            );
+            const labeledRear = videoInputs.filter((d) => isRearCameraLabel(d.label));
+            const baseList =
+              labeledRear.length > 0
+                ? labeledRear
+                : videoInputs.filter((d) => !isFrontCameraLabel(d.label));
+            const options: RearCameraOption[] = baseList.map((d, i) => ({
+              deviceId: d.deviceId,
+              label: d.label || `Camera ${i + 1}`,
+            }));
+            if (currentId && !options.some((o) => o.deviceId === currentId)) {
+              options.unshift({ deviceId: currentId, label: track?.label || 'Camera 1' });
+            }
+            setRearCameras(options);
+          }
+        } catch {
+          // Device enumeration is optional
         }
-      }
 
-      if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
+        if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
+          stopCamera();
+          return;
+        }
+
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          await video.play().catch(() => {});
+        }
+
+        await applyZoomToTrack(zoomRef.current);
+        if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
+          stopCamera();
+          return;
+        }
+
+        setPhase('live');
+        startSampling();
+      } catch {
+        if (!mountedRef.current || cameraAttemptRef.current !== attemptId) return;
         stopCamera();
-        return;
+        setPhase('fallback');
+        setCameraError(
+          it
+            ? 'Permesso fotocamera negato o non disponibile. Puoi comunque usare Apri foto.'
+            : 'Camera permission denied or unavailable. You can still use Open photo.',
+        );
       }
-
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        await video.play().catch(() => {});
-      }
-
-      await applyZoomToTrack(zoomRef.current);
-      if (!mountedRef.current || cameraAttemptRef.current !== attemptId) {
-        stopCamera();
-        return;
-      }
-
-      setPhase('live');
-      startSampling();
-    } catch {
-      if (!mountedRef.current || cameraAttemptRef.current !== attemptId) return;
-      stopCamera();
-      setPhase('fallback');
-      setCameraError(
-        it
-          ? 'Permesso fotocamera negato o non disponibile. Puoi comunque usare Apri foto.'
-          : 'Camera permission denied or unavailable. You can still use Open photo.',
-      );
-    }
-  }, [applyZoomToTrack, it, startSampling, stopCamera]);
+    },
+    [applyZoomToTrack, it, startSampling, stopCamera],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -352,6 +515,67 @@ export default function ClockCameraHelper({
     }
   };
 
+  const handleRefocus = async () => {
+    if (phase !== 'live') return;
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+
+    if (refocusTimerRef.current !== null) {
+      window.clearTimeout(refocusTimerRef.current);
+      refocusTimerRef.current = null;
+    }
+    setRefocusing(true);
+
+    if (supportsSingleShotFocusRef.current) {
+      try {
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'single-shot' }],
+        } as unknown as MediaTrackConstraints);
+      } catch {
+        // ignore
+      }
+      refocusTimerRef.current = window.setTimeout(() => {
+        refocusTimerRef.current = null;
+        if (!mountedRef.current) return;
+        void applyZoomToTrack(zoomRef.current);
+        setRefocusing(false);
+      }, 250);
+    } else if (supportsContinuousFocusRef.current) {
+      try {
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'continuous' }],
+        } as unknown as MediaTrackConstraints);
+      } catch {
+        // ignore
+      }
+      refocusTimerRef.current = window.setTimeout(() => {
+        refocusTimerRef.current = null;
+        if (mountedRef.current) {
+          setRefocusing(false);
+        }
+      }, 200);
+    } else {
+      setRefocusing(false);
+    }
+  };
+
+  const handleCycleLens = () => {
+    if (phase !== 'live' || rearCameras.length <= 1) return;
+    const idx = rearCameras.findIndex((c) => c.deviceId === activeDeviceId);
+    const next = rearCameras[(idx + 1) % rearCameras.length];
+    if (next) {
+      writeStoredLensId(next.deviceId);
+      void startCamera(next.deviceId);
+    }
+  };
+
+  const nudgeReticle = (dx: number, dy: number) => {
+    setReticleOffset((prev) => ({
+      x: Math.max(-45, Math.min(45, prev.x + dx)),
+      y: Math.max(-45, Math.min(45, prev.y + dy)),
+    }));
+  };
+
   const handleFreeze = () => {
     if (phase !== 'live') return;
     const video = videoRef.current;
@@ -365,7 +589,7 @@ export default function ClockCameraHelper({
         digitalZoomRef.current,
       );
       if (latest) {
-        ringBufferRef.current.push(latest);
+        ringBufferRef.current.push({ src: latest, ts: performance.now() });
       }
       try {
         video.pause();
@@ -386,6 +610,8 @@ export default function ClockCameraHelper({
       return;
     }
     setCameraError(null);
+    setReticleOffset({ x: 0, y: 0 });
+    setCenterMode(false);
     setFrozenFrames(frames);
     setScrubIndex(frames.length - 1);
     setPhase('frozen');
@@ -394,6 +620,8 @@ export default function ClockCameraHelper({
   const resumeLiveOrFallback = useCallback(() => {
     setFrozenFrames([]);
     setScrubIndex(0);
+    setReticleOffset({ x: 0, y: 0 });
+    setCenterMode(false);
     ringBufferRef.current.clear();
     if (streamRef.current && videoRef.current) {
       setPhase('live');
@@ -458,7 +686,9 @@ export default function ClockCameraHelper({
       );
       const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.85);
       setCameraError(null);
-      setFrozenFrames([dataUrl]);
+      setReticleOffset({ x: 0, y: 0 });
+      setCenterMode(false);
+      setFrozenFrames([{ src: dataUrl, ts: performance.now() }]);
       setScrubIndex(0);
       if (videoRef.current) {
         try {
@@ -494,7 +724,11 @@ export default function ClockCameraHelper({
     close();
   };
 
-  const activeFrozenSrc = frozenFrames[scrubIndex] ?? '';
+  const activeFrame = frozenFrames[scrubIndex];
+  const activeFrozenSrc = activeFrame?.src ?? '';
+  const lastTs = frozenFrames[frozenFrames.length - 1]?.ts ?? 0;
+  const deltaSec = activeFrame ? (activeFrame.ts - lastTs) / 1000 : 0;
+  const deltaLabel = deltaSec >= -0.005 ? '0.00s' : `${deltaSec.toFixed(2)}s`;
   const hasStream = streamRef.current !== null;
   const subtitle = `${activeProfile.name} · ${
     mode === 'save'
@@ -566,6 +800,10 @@ export default function ClockCameraHelper({
               tiltDeg={tiltDeg}
               interactive={phase === 'frozen'}
               onSelectIndex={setSelectedIndex}
+              offsetX={phase === 'frozen' ? reticleOffset.x : 0}
+              offsetY={phase === 'frozen' ? reticleOffset.y : 0}
+              centerMode={phase === 'frozen' && centerMode}
+              onMoveCenter={(x, y) => setReticleOffset({ x, y })}
             />
           )}
 
@@ -663,13 +901,97 @@ export default function ClockCameraHelper({
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
-                <span className="font-mono text-[11px] tabular-nums text-zinc-400 shrink-0">
-                  {scrubIndex + 1}/{frozenFrames.length}
-                </span>
+                <div className="flex flex-col items-end font-mono text-[10px] leading-tight tabular-nums text-zinc-400 shrink-0 w-11">
+                  <span>{scrubIndex + 1}/{frozenFrames.length}</span>
+                  <span>{deltaLabel}</span>
+                </div>
               </div>
             )}
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={centerMode}
+                onClick={() => setCenterMode((prev) => !prev)}
+                className={`min-h-11 flex-1 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 active:scale-95 transition ${
+                  centerMode
+                    ? 'bg-sky-400/20 border-sky-400 text-sky-200'
+                    : 'border-zinc-700 bg-zinc-950 text-zinc-200'
+                }`}
+              >
+                <Move className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {it
+                    ? centerMode
+                      ? 'Fatto (centra)'
+                      : 'Centra mirino'
+                    : centerMode
+                      ? 'Done centering'
+                      : 'Center reticle'}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={reticleOffset.x === 0 && reticleOffset.y === 0}
+                onClick={() => setReticleOffset({ x: 0, y: 0 })}
+                title={it ? 'Riporta mirino al centro' : 'Reset reticle center'}
+                className="min-h-11 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-xs text-zinc-300 flex items-center gap-1 disabled:opacity-40 active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>0,0</span>
+              </button>
+            </div>
+
+            {centerMode && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-sky-300 text-center">
+                  {it
+                    ? 'Trascina da qualsiasi punto o usa le frecce per centrare.'
+                    : 'Drag anywhere or use arrows to center.'}
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => nudgeReticle(-2, 0)}
+                    aria-label={it ? 'Sposta mirino a sinistra' : 'Nudge reticle left'}
+                    className="min-h-11 rounded-xl border border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-200 active:scale-95"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeReticle(0, -2)}
+                    aria-label={it ? 'Sposta mirino in alto' : 'Nudge reticle up'}
+                    className="min-h-11 rounded-xl border border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-200 active:scale-95"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeReticle(0, 2)}
+                    aria-label={it ? 'Sposta mirino in basso' : 'Nudge reticle down'}
+                    className="min-h-11 rounded-xl border border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-200 active:scale-95"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeReticle(2, 0)}
+                    aria-label={it ? 'Sposta mirino a destra' : 'Nudge reticle right'}
+                    className="min-h-11 rounded-xl border border-zinc-700 bg-zinc-950 flex items-center justify-center text-zinc-200 active:scale-95"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <img
+                src={`${import.meta.env.BASE_URL}assets/clocks/Clock_${formatClockIdx(selectedIndex)}.jpg`}
+                alt={`Clock ${formatClockIdx(selectedIndex)}`}
+                className="h-11 w-11 shrink-0 rounded-full border border-amber-400/50 object-cover bg-zinc-950"
+              />
               <button
                 type="button"
                 onClick={() => handleStep(-1)}
@@ -749,7 +1071,49 @@ export default function ClockCameraHelper({
               aria-label="Zoom"
               className="flex-1 accent-amber-400"
             />
+            {phase === 'live' && (
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                  zoomMode === 'hw'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : zoomMode === 'mix'
+                      ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                }`}
+              >
+                {zoomMode === 'hw' ? 'HW' : zoomMode === 'mix' ? 'Mix' : 'Dig'}
+              </span>
+            )}
           </div>
+
+          {phase === 'live' && (canRefocus || rearCameras.length > 1) && (
+            <div className="flex items-center gap-2">
+              {canRefocus && (
+                <button
+                  type="button"
+                  onClick={() => void handleRefocus()}
+                  className="min-h-11 flex-1 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-xs font-medium text-zinc-200 flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Crosshair className={`w-3.5 h-3.5 ${refocusing ? 'animate-pulse text-amber-400' : ''}`} />
+                  <span>{it ? 'Fuoco AF' : 'Refocus AF'}</span>
+                </button>
+              )}
+              {rearCameras.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleCycleLens}
+                  className="min-h-11 flex-1 px-3 rounded-xl border border-zinc-700 bg-zinc-950 text-xs font-medium text-zinc-200 flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <SwitchCamera className="w-3.5 h-3.5" />
+                  <span>
+                    {it ? 'Obiettivo' : 'Lens'}{' '}
+                    {Math.max(1, rearCameras.findIndex((c) => c.deviceId === activeDeviceId) + 1)}/
+                    {rearCameras.length}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <span className="w-16 shrink-0 text-zinc-400 font-medium">
@@ -783,21 +1147,23 @@ export default function ClockCameraHelper({
                 ? 'Tocca il quadrante congelato o usa −1 / +1.'
                 : 'Tap frozen dial or use −1 / +1.'}
             </span>
-            <label className="min-h-11 px-3 shrink-0 rounded-xl border border-zinc-700 bg-zinc-950 text-xs font-medium text-zinc-200 inline-flex items-center gap-1.5 cursor-pointer active:scale-95">
-              <ImagePlus className="w-3.5 h-3.5" />
-              <span>{it ? 'Apri foto' : 'Open photo'}</span>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handlePhotoUpload(f);
-                  e.target.value = '';
-                }}
-              />
-            </label>
+            {!(phase === 'frozen' && hasStream) && (
+              <label className="min-h-11 px-3 shrink-0 rounded-xl border border-zinc-700 bg-zinc-950 text-xs font-medium text-zinc-200 inline-flex items-center gap-1.5 cursor-pointer active:scale-95">
+                <ImagePlus className="w-3.5 h-3.5" />
+                <span>{it ? 'Apri foto' : 'Open photo'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handlePhotoUpload(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
           </div>
         </div>
 

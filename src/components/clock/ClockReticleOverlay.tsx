@@ -6,12 +6,17 @@ interface ClockReticleOverlayProps {
   tiltDeg: number;
   interactive: boolean;
   onSelectIndex: (idx: number) => void;
+  offsetX?: number;
+  offsetY?: number;
+  centerMode?: boolean;
+  onMoveCenter?: (x: number, y: number) => void;
 }
 
 const CENTER = 100;
 const OUTER_R = 82;
 const TICK_OUTER = 80;
 const TICK_INNER = 69;
+const MAX_OFFSET = 45;
 
 /**
  * High-contrast 17-position clock reticle overlay aligned with Gen 7 clock geometry.
@@ -21,14 +26,27 @@ export function ClockReticleOverlay({
   tiltDeg,
   interactive,
   onSelectIndex,
+  offsetX = 0,
+  offsetY = 0,
+  centerMode = false,
+  onMoveCenter,
 }: ClockReticleOverlayProps) {
   const activePointerId = useRef<number | null>(null);
+  const dragOriginRef = useRef<{
+    svgX: number;
+    svgY: number;
+    baseX: number;
+    baseY: number;
+  } | null>(null);
 
   const pickFromEvent = (e: ReactPointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
+    const svgX = ((e.clientX - rect.left) / rect.width) * 200;
+    const svgY = ((e.clientY - rect.top) / rect.height) * 200;
+
+    const dx = svgX - (CENTER + offsetX);
+    const dy = svgY - (CENTER + offsetY);
     const next = pointerToClockIndex(dx, dy, tiltDeg);
     if (next !== selectedIndex) {
       onSelectIndex(next);
@@ -43,18 +61,45 @@ export function ClockReticleOverlay({
     } catch {
       // Ignore capture errors on synthetic events
     }
+    if (centerMode && onMoveCenter) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const svgX = ((e.clientX - rect.left) / rect.width) * 200;
+        const svgY = ((e.clientY - rect.top) / rect.height) * 200;
+        dragOriginRef.current = { svgX, svgY, baseX: offsetX, baseY: offsetY };
+      }
+      return;
+    }
     pickFromEvent(e);
   };
 
   const handlePointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (!interactive) return;
     if (activePointerId.current !== e.pointerId && e.buttons !== 1) return;
+    if (centerMode && onMoveCenter && dragOriginRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const svgX = ((e.clientX - rect.left) / rect.width) * 200;
+        const svgY = ((e.clientY - rect.top) / rect.height) * 200;
+        const nx = Math.max(
+          -MAX_OFFSET,
+          Math.min(MAX_OFFSET, dragOriginRef.current.baseX + (svgX - dragOriginRef.current.svgX)),
+        );
+        const ny = Math.max(
+          -MAX_OFFSET,
+          Math.min(MAX_OFFSET, dragOriginRef.current.baseY + (svgY - dragOriginRef.current.svgY)),
+        );
+        onMoveCenter(nx, ny);
+      }
+      return;
+    }
     pickFromEvent(e);
   };
 
   const handlePointerEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (activePointerId.current === e.pointerId) {
       activePointerId.current = null;
+      dragOriginRef.current = null;
     }
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
       try {
@@ -74,7 +119,9 @@ export function ClockReticleOverlay({
       viewBox="0 0 200 200"
       className={
         interactive
-          ? 'absolute inset-0 h-full w-full touch-none select-none cursor-crosshair'
+          ? centerMode
+            ? 'absolute inset-0 h-full w-full touch-none select-none cursor-move'
+            : 'absolute inset-0 h-full w-full touch-none select-none cursor-crosshair'
           : 'absolute inset-0 h-full w-full pointer-events-none select-none'
       }
       aria-hidden={!interactive}
@@ -83,7 +130,7 @@ export function ClockReticleOverlay({
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
     >
-      <g transform={`rotate(${tiltDeg} ${CENTER} ${CENTER})`}>
+      <g transform={`translate(${offsetX} ${offsetY}) rotate(${tiltDeg} ${CENTER} ${CENTER})`}>
         {/* Outer double ring for contrast on both bright and dark 2DS screens */}
         <circle
           cx={CENTER}
@@ -218,11 +265,27 @@ export function ClockReticleOverlay({
             <circle
               cx={CENTER}
               cy={CENTER}
-              r="4.6"
-              fill="#fef3c7"
-              stroke="rgba(0,0,0,0.8)"
-              strokeWidth="1.8"
+              r={centerMode ? '3.2' : '2.6'}
+              fill="none"
+              stroke="rgba(0,0,0,0.85)"
+              strokeWidth="2.4"
             />
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={centerMode ? '3.2' : '2.6'}
+              fill="none"
+              stroke={centerMode ? '#38bdf8' : '#fef3c7'}
+              strokeWidth="1.2"
+            />
+            {centerMode && (
+              <g stroke="#38bdf8" strokeWidth="1.4" strokeLinecap="round">
+                <line x1={CENTER - 13} y1={CENTER} x2={CENTER - 7} y2={CENTER} />
+                <line x1={CENTER + 7} y1={CENTER} x2={CENTER + 13} y2={CENTER} />
+                <line x1={CENTER} y1={CENTER - 13} x2={CENTER} y2={CENTER - 7} />
+                <line x1={CENTER} y1={CENTER + 7} x2={CENTER} y2={CENTER + 13} />
+              </g>
+            )}
           </>
         ) : (
           /* Live center crosshair dot */
