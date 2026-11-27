@@ -57,6 +57,7 @@ export default function PokeReaderScanner6({
   const [mtVerifyLevel, setMtVerifyLevel] = useState<VerifyLevel>('none');
   const [mtMatchedNibbles, setMtMatchedNibbles] = useState(0);
   const [tinyVerifyLevel, setTinyVerifyLevel] = useState<VerifyLevel>('none');
+  const [tinyMatchedNibbles, setTinyMatchedNibbles] = useState(0);
   const [raw, setRaw] = useState('');
   const [photo, setPhoto] = useState('');
   const [status, setStatus] = useState('loading');
@@ -101,6 +102,7 @@ export default function PokeReaderScanner6({
     setMtVerifyLevel('none');
     setMtMatchedNibbles(0);
     setTinyVerifyLevel('none');
+    setTinyMatchedNibbles(0);
     setRaw('');
     let loaded = false;
     let worker: { terminate: () => Promise<unknown> } | null = null;
@@ -124,6 +126,7 @@ export default function PokeReaderScanner6({
         setMtVerifyLevel(result.mtVerifyLevel);
         setMtMatchedNibbles(result.mtMatchedNibbles);
         setTinyVerifyLevel(result.tinyVerifyLevel);
+        setTinyMatchedNibbles(result.tinyMatchedNibbles);
         setPhoto(result.previewUrl);
         setStatus(Object.keys(result.fields).length ? 'done' : 'empty');
       }
@@ -341,7 +344,13 @@ export default function PokeReaderScanner6({
                   </span>
                 ) : tinyVerifyLevel === 'probable' ? (
                   <span className="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300 border border-sky-500/40">
-                    {it ? 'Probabile TinyMT' : 'TinyMT Probable'}
+                    {it
+                      ? tinyMatchedNibbles > 0
+                        ? `Probabile TinyMT (${tinyMatchedNibbles}/32)`
+                        : 'Probabile TinyMT'
+                      : tinyMatchedNibbles > 0
+                        ? `TinyMT Probable (${tinyMatchedNibbles}/32)`
+                        : 'TinyMT Probable'}
                   </span>
                 ) : (
                   <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 border border-amber-500/40">
@@ -382,6 +391,7 @@ export default function PokeReaderScanner6({
                   }
                   if (tinyKey) {
                     setTinyVerifyLevel('none');
+                    setTinyMatchedNibbles(0);
                     setUncertain((prev) => ({ ...prev, [tinyKey]: [] }));
                   }
                   if (eggKey) {
@@ -407,6 +417,7 @@ export default function PokeReaderScanner6({
                       }
                       if (tinyKey) {
                         setTinyVerifyLevel('none');
+                        setTinyMatchedNibbles(0);
                         setUncertain((prev) => ({
                           ...prev,
                           [tinyKey]: (prev[tinyKey] ?? []).filter((idx) => idx !== pos),

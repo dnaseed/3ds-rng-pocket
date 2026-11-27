@@ -296,10 +296,7 @@ export function verifyOrFixTinyMt(
     (bestStateNibbles >= 20 && bestStateNibbles - Math.max(0, secondBestStateNibbles) >= 5);
   if (!stateTrusted) return null;
 
-  const exact =
-    bestSeedNibbles >= 26 &&
-    bestStateNibbles >= 24 &&
-    (bestStateNibbles === 32 || bestStateNibbles - Math.max(0, secondBestStateNibbles) >= 6);
+  const exact = bestSeedNibbles >= 26 && bestStateNibbles === 32;
 
   return {
     verified: true,

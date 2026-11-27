@@ -39,6 +39,7 @@ export interface ScanPhoto6Result {
   mtMatchedNibbles: number;
   tinyVerified: boolean;
   tinyVerifyLevel: VerifyLevel;
+  tinyMatchedNibbles: number;
   uncertain: Partial<Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0' | 'egg1' | 'egg0', number[]>>;
   crops: Partial<Record<keyof OverlayFields6, string>>;
   previewUrl: string;
@@ -532,6 +533,7 @@ export async function scanPhoto6(
   let mtMatchedNibbles = 0;
   let tinyVerified = false;
   let tinyVerifyLevel: VerifyLevel = 'none';
+  let tinyMatchedNibbles = 0;
   let bestNccRng: Rng6NccResult | null = null;
 
   const canvas = document.createElement('canvas');
@@ -687,6 +689,7 @@ export async function scanPhoto6(
             fields.tiny0 = ncc.tiny0;
             tinyVerified = ncc.tinyVerified;
             tinyVerifyLevel = ncc.tinyExact ? 'exact' : ncc.tinyVerified ? 'probable' : 'none';
+            tinyMatchedNibbles = ncc.tinyMatchedNibbles;
             if (ncc.tinyCrops) {
               crops.tiny3 = cropDataUrl(ncc.tinyCrops.tiny3);
               crops.tiny2 = cropDataUrl(ncc.tinyCrops.tiny2);
@@ -882,6 +885,7 @@ export async function scanPhoto6(
         fields.tiny0 = tinyRes.tiny0;
         tinyVerified = true;
         tinyVerifyLevel = tinyRes.exact ? 'exact' : 'probable';
+        tinyMatchedNibbles = tinyRes.matchedStateNibbles;
       }
     }
 
@@ -892,6 +896,7 @@ export async function scanPhoto6(
       mtMatchedNibbles,
       tinyVerified,
       tinyVerifyLevel,
+      tinyMatchedNibbles,
       uncertain,
       crops,
       previewUrl,

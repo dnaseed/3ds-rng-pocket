@@ -438,6 +438,7 @@ export interface Rng6NccResult {
   tiny0?: string;
   tinyVerified: boolean;
   tinyExact: boolean;
+  tinyMatchedNibbles: number;
   tinyCrops?: Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0', Region>;
   tinyUncertain?: Record<'tiny3' | 'tiny2' | 'tiny1' | 'tiny0', number[]>;
 }
@@ -538,6 +539,7 @@ export function readRng6FromAnchor(
   let tiny0: string | undefined;
   let tinyVerified = false;
   let tinyExact = false;
+  let tinyMatchedNibbles = 0;
   let tinyCrops: Rng6NccResult['tinyCrops'];
   let tinyUncertain: Rng6NccResult['tinyUncertain'];
 
@@ -598,6 +600,7 @@ export function readRng6FromAnchor(
       tiny0 = tinyRes.tiny0;
       tinyVerified = true;
       tinyExact = tinyRes.exact;
+      tinyMatchedNibbles = tinyRes.matchedStateNibbles;
       tinyCrops = {
         tiny3: st3.region,
         tiny2: st2.region,
@@ -642,6 +645,7 @@ export function readRng6FromAnchor(
     tiny0,
     tinyVerified,
     tinyExact,
+    tinyMatchedNibbles,
     tinyCrops,
     tinyUncertain,
   };

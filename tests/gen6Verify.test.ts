@@ -38,6 +38,7 @@ describe('gen6Verify', () => {
     expect(tiny).not.toBeNull();
     expect(tiny!.verified).toBe(true);
     expect(tiny!.exact).toBe(true);
+    expect(tiny!.matchedStateNibbles).toBe(32);
     expect(tiny!.tinyAdvances).toBe(3);
     expect([tiny!.tiny3, tiny!.tiny2, tiny!.tiny1, tiny!.tiny0]).toEqual([
       'DD70BFCA',
@@ -45,6 +46,28 @@ describe('gen6Verify', () => {
       '1B379D8E',
       '5667232D',
     ]);
+  });
+
+  it('recovers partial TinyMT state match as probable rather than exact', () => {
+    const tiny = verifyOrFixTinyMt(
+      buildConfusionRanked('AD3171B0'),
+      ['E70D76F1', '56D2B5D9', '2DF7BD8E', 'FE51994C'],
+      ['DD70BFC0', 'EE79358E', '1B379D8E', '5667232D'], // DD70BFCA -> DD70BFC0 (31/32 nibbles)
+      [3],
+    );
+    expect(tiny).not.toBeNull();
+    expect(tiny!.verified).toBe(true);
+    expect(tiny!.exact).toBe(false);
+    expect(tiny!.matchedStateNibbles).toBe(31);
+    expect(tiny!.tinyAdvances).toBe(3);
+    expect([tiny!.tiny3, tiny!.tiny2, tiny!.tiny1, tiny!.tiny0]).toEqual([
+      'DD70BFCA',
+      'EE79358E',
+      '1B379D8E',
+      '5667232D',
+    ]);
+    const level = tiny!.exact ? 'exact' : tiny!.verified ? 'probable' : 'none';
+    expect(level).toBe('probable');
   });
 
   it('parses Gen 6 RNG full view, compact view, and Daycare view', () => {
