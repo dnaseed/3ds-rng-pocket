@@ -5,19 +5,19 @@
   <p><a href="https://dnaseed.github.io/3ds-rng-pocket/"><strong>Open 3DS RNG Pocket</strong></a></p>
 </div>
 
-**Frame searches work offline after the first load.** Gen 7 Save/ID clock seed lookup requires an internet connection; if you already know your initial seed, enter it in hex to work offline. Gen 6 tools run 100% offline.
+**Frame searches work offline after the first load.** The on-demand PokeReader OCR engine also runs 100% locally on your device and works offline once warmed up by opening **Scan overlay** while online. Gen 7 Save/ID clock seed lookup requires an internet connection when you submit the sequence; if you already know your initial seed (or use the QR Scanner), everything runs offline. Gen 6 tools run 100% offline.
 
 ## Quick RNG workflow
 
 ### Generation 6 (X, Y, Omega Ruby & Alpha Sapphire)
 
 1. Tap **Open Gen 6** (tap **EN** on the home screen or inside **Trainer Profiles** to switch to Italian). Go to **More → Trainer Profiles → New Profile** to set your game version, TID/SID, and Shiny Charm.
-2. In **Seed**, enter your 32-bit **MT Seed (hex)** or use **MT Seed Finder** (1 capture with IV ranges + nature, or 2 captures with exact IVs across 1/2/4 workers) to recover it from caught Pokémon. Use **TinyMT Timeline** to calibrate blinks, fidgets, weather, or encounter slots from your `S3–S0` TinyMT state.
+2. In **Seed**, enter your 32-bit **MT Seed (hex)**, tap **Scan overlay** to read a PokeReader screen (`MT Seed`, `MT Advances`, `TinyMT S3–S0`, or Daycare `Egg Key` in Seed, TinyMT Timeline, ID RNG, or Egg), or use **MT Seed Finder** (1 capture with IV ranges + nature, or 2 captures with exact IVs across 1/2/4 workers). Use **TinyMT Timeline** to calibrate blinks, fidgets, weather, or encounter slots from your `S3–S0` TinyMT state.
 3. Open **Stationary**, **Wild** (Normal, Fishing, Rock Smash, Cave Shadows, Trap, Friend Safari, Hordes, PokéRadar, or DexNav), **Egg**, **More → Event** (`.wc6`/`.wc6full` or manual), **More → ID RNG**, or **More → Tools (Pokérus)**, apply frame filters, and tap **Search**.
 
 ### Generation 7 (Sun, Moon, Ultra Sun & Ultra Moon)
 
-1. Tap **Open Gen 7** to start on **Seed** with an Ultra Sun profile (switch or add profiles in **More → Trainer Profiles**). Enter your initial seed or use the Save Screen clock lookup.
+1. Tap **Open Gen 7** to start on **Seed** with an Ultra Sun profile (switch or add profiles in **More → Trainer Profiles**). Enter your initial seed in hex, tap **Scan overlay** to read a PokeReader screen (`Initial Seed`, `Advances`, or `Egg Seed`), or tap **Use camera** for stock 3DS/2DS clock readings.
 2. In **Stationary**, **Wild**, or **More → Event**, choose your encounter and select **Normal**. Set **Min Frame** and **Max Frame**, choose your filters, and tap **Search**. With NPCs present, **Safe Frames Only** helps find a stable starting frame.
 3. Tap a result. **Timeline from #…** opens a populated Timeline starting at that frame to read the wait time. Use **Set Min Frame** or **Set Target** when you only want to save the frame number.
 4. If you miss the encounter, open the intended frame and tap **Around Target (±100F)**. Use **Filters → Calculate IVs from stats** to turn a caught Pokémon’s summary stats (0 EVs) into IV ranges and compare nearby results. The **?** beside the result count explains the frame badges.
@@ -41,12 +41,28 @@
 - **Misc RNG Tool.** Open **Tools** on desktop or **More → Tools** on mobile to search for Pokérus, Festival Plaza facilities, Battle Tree trainers, Roto Loto powers, and berries by location.
 - **Trainer profiles.** Save profiles for each game, import or export them as JSON, and switch between English and Italian.
 
+## Assisted acquisition (camera & overlay OCR)
+
+### PokeReader Overlay Scanner (`Scan overlay` — Gen 7 & Gen 6)
+Read PokeReader directly from full-screen photos of your console without manual cropping. All image processing and OCR run **100% locally on your device** (no photos leave the browser). The self-hosted OCR engine (`tesseract.js`, WASM core, and English model) is cached on demand into `pocket-ocr-v1` when you first open the scanner online, so later scans work offline too.
+
+- **Gen 7** *(tested on Ultra Sun · PokeReader 0.7.4)*: extracts `Initial Seed` and `Advances` with mathematical **`SFMT Verified ✓`** checking against `State[1]` / `State[0]`, plus `Egg Seed` (`Egg[3..0]`).
+- **Gen 6** *(active on X/Y/OR/AS; tested on ORAS ITA 1.4)*: extracts `MT Seed` and `MT Advances` with **`MT Verified ✓`** against `Curr state`, recovers and verifies the full 128-bit `TinyMT` state `S3–S0` (**`TinyMT Verified ✓`** from `Tiny u32 seed` + `Advances`), and maps Daycare `Egg[0] → Key0` and `Egg[1] → Key1`.
+- **Visual verification & safe apply:** zoomed crops for each hex field and quick `8↔B` / `0↔D` ambiguity swaps appear before transfer; nothing overwrites your current seed, frame, or profile until you tap **Apply Seed + Frame**, **Apply Egg Seed**, or **Apply Egg Key**.
+
+### Gen 7 Clock Camera Helper (`Use camera` — stock 3DS/2DS)
+Acquire clock-hand readings without CFW using your phone's rear camera across **Save** (`End` with default `Offset 4`, or `Start`), **New Game ID** (`Start`, 9 readings), and **QR Scanner** (`Start`, min 2 readings, 100% offline).
+
+1. **Game loop on 3DS/2DS (Save Screen · `End`, `Offset 4`):** boot the game to the Title screen (**Press A / Start**) — this fixes your initial seed. Press **A** to enter **Continue**, watch the bottom-screen loading clock spin, then press **B** to back out to the Title screen (**never Soft Reset**, which changes the seed). Repeat **8 consecutive times**. If you miss a clock, tap **Clear** in the camera draft and collect 8 fresh consecutive readings on the same boot; taking a **9th reading** eliminates almost all random `17⁸` seed collisions.
+2. **Freeze & micro-scrub:** tap **Freeze** right after the animation finishes to scrub the last **30 frames at 60 ms intervals (~1.8 s)** with relative time offsets (`-0.xx s`). Pick the **last clear frame available where the clock is still visible** (immediately before / as the Trainer portrait begins to appear).
+3. **Align & choose the tick:** tap **Center reticle** to align the open center ring with the 2DS clock hub using relative drag from anywhere on the viewfinder (your finger stays out of the way) or the fine **`← ↑ ↓ →`** nudge buttons. Compare both hands — especially the faster **`2×` long yellow hand** — against the side-by-side game sprite (`Clock_XX`). **When unsure between two adjacent close configurations, choose the next configuration (`+1`)** (unless clearly far away) while keeping `Offset 4` for Save End.
+4. **Camera & privacy safeguards:** runs at `1920×1080` on the rear camera with continuous autofocus, a manual **Refocus AF** kick button, persistent rear **Lens** selector (`localStorage`), and `HW` / `Mix` / `Dig` zoom indicator. Frozen frames are protected against stray taps; switching apps pauses the camera while preserving your draft; closing with `X` leaves your manual sequence untouched; and zero network requests are sent until **Look up seed online** is explicitly pressed.
+
 ## Desktop parity and scope
 
 - **Gen 7:** frame outputs were compared row by row with **3DSRNGTool v1.0.6** on sampled **Ultra Sun** and **Moon** scenarios covering Stationary, Wild, Egg, Event, Trainer ID, and Misc RNG.
 - **Gen 6:** outputs were verified against **3DSRNGTool v1.0.6** across MT19937, TinyMT Timeline, Stationary/Transporter, Wild/Fishing/Rock Smash/Shadows/Trap/Friend Safari, Hordes, PokéRadar, Egg, Event (`.wc6`/`.wc6full`), ID RNG, Pokérus, and MT Seed Finder. For **DexNav**, patch/trigger calculations match `DexNav.cs` while Pokémon generation matches the `Wild6` generator of `3DSRNGTool v1.0.6` (the v1.0.6 Windows UI does not expose an integrated DexNav flow).
-
-Clock readings, TinyMT states, and frame advances are entered manually.
+- **Assisted acquisition scope:** Gen 7 OCR is verified on **Ultra Sun (PokeReader 0.7.4)**; Gen 6 OCR is active for XY/ORAS and verified offline on **ORAS ITA 1.4** (Pokémon X/Y real-photo corpus pending). Both **Clock camera** (Save End against PokeReader seed, QR offline) and **Scan overlay** were verified on real **Android Chrome + Nintendo 2DS** hardware; iOS Safari remains unverified on physical hardware.
 
 ## Use online or install on a phone
 
