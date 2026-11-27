@@ -73,6 +73,18 @@ Designed for **Gen 7 players without CFW** who need accurate readings from the b
 5. Press **B** on the 3DS/2DS to return to the Title screen (**never Soft Reset** mid-sequence, or your seed will change) and repeat steps 2–4 until you have **at least 8 consecutive readings** (if you already entered Continue once before starting, or miss a reading mid-way, Soft Reset to start a fresh boot). There is no maximum of 8: reopening **Use camera** appends new readings onto your existing sequence so you can easily add a 9th or 10th reading.
 6. Tap **Look up seed online** to submit your confirmed sequence once (internet is only needed at this step; zero requests are sent while collecting).
 
+<p align="center">
+  <img src="docs/images/clock-camera-frozen.jpg" width="280" alt="Clock camera frozen frame showing the 17-tick reticle centered on the 2DS clock, micro-scrub slider at 20/30 (-0.59s), Clock_12 comparison sprite, and + Add 12 button" />
+</p>
+<p align="center"><em>Frozen frame right before tapping <strong>+ Add 12</strong>: centered reticle, micro-scrub slider (<code>20/30 · -0.59s</code>), and the matching <code>Clock_12</code> reference sprite beside the button.</em></p>
+
+<details>
+<summary><strong>Watch a full 9-reading 2DS walkthrough (~1 min, muted)</strong> — 1st reading at 1×, readings 2–8 sped up, 2 candidate seeds → appending a 9th reading → unique seed applied</summary>
+
+https://github.com/user-attachments/assets/83bb6c7b-9735-4101-ae7f-fbd64dc7e4b4
+
+</details>
+
 - **Save End (`Offset 4`) tip:** in physical 2DS testing, when the last clear clock frame sits midway between two adjacent close ticks, picking the **next configuration (`+1`)** (unless clearly far away) works best; taking a **9th consecutive reading** helps rule out random seed collisions.
 - **Mixing camera & manual readings:** you can save a partial camera draft (`< 8`) straight into the sequence (or choose **Save to sequence** if you close with readings in the draft) and finish the rest manually — or vice versa.
 - **Other modes & camera behavior:** **Use camera** also works in **New Game ID** (`Start`, 9 readings) and **QR Scanner** (`Start`, min 2 readings, 100% offline). It requests `1080p` from the rear camera; focus (**Refocus AF**), zoom (`HW` / `Mix` / `Dig`), and rear **Lens** switching depend on your phone. Frozen frames are protected from stray taps, and switching apps pauses the camera while keeping your draft.
